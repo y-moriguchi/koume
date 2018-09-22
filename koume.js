@@ -11,7 +11,34 @@
 	function isArray(arg) {
 		return Object.prototype.toString.call(arg) === '[object Array]';
 	}
+	function getOneAndOnlyField(obj) {
+		var res = undef;
+		for(i in obj) {
+			if(obj.hasOwnProperty(i)) {
+				if(res === undef) {
+					res = i;
+				} else {
+					throw new Error("There are two fields in object");
+				}
+			}
+		}
+		if(res === undef) {
+			throw new Error("No fields in object");
+		}
+		return res;
+	}
 	function traverse(input, funcs) {
+		function outputBegin(list, isTail) {
+			var i,
+				res;
+			for(i = 0, res = []; i < list.length; i++) {
+				res = res.concat(walk(list[i], isTail && i === list.length - 1));
+				if(i < list.length - 1) {
+					res.push("pop");
+				}
+			}
+			return res;
+		}
 		function walk(input, isTail) {
 			var i,
 				res,
@@ -31,15 +58,28 @@
 				return ["push", input];
 			} else if(input.hasOwnProperty("q")) {
 				return ["push", input.q];
-			} else if(input.hasOwnProperty("function")) {
-				for(i = 0, res = []; i < input["function"].begin.length; i++) {
-					res = res.concat(walk(input["function"].begin[i], i === input["function"].begin.length - 1));
-					if(i < input["function"].begin.length - 1) {
-						res.push("pop");
+			} else if(input.hasOwnProperty("ref")) {
+				res = ["ref"];
+				i = getOneAndOnlyField(input.ref);
+				res.push({ "q": i });
+				res.push(input.ref[i]);
+				return walk(res, isTail);
+			} else if(input.hasOwnProperty("cons")) {
+				res = ["createObj"];
+				for(i in input.cons) {
+					if(input.cons.hasOwnProperty(i)) {
+						res = res.concat(walk(input.cons[i]));
+						res.push("addObj");
+						res.push(i);
 					}
 				}
+				return res;
+			} else if(input.hasOwnProperty("begin")) {
+				return outputBegin(input.begin, isTail);
+			} else if(input.hasOwnProperty("function")) {
+				res = outputBegin(input["function"].begin, true);
 				func = funcs.putFunc(input["function"].args, res);
-				return ["pushFunc", func];
+				return ["pushFunc", func, input["function"].name, input["function"].nameNew];
 			} else if(input.hasOwnProperty("if")) {
 				res = [];
 				res = res.concat(walk(input["if"].cond));
@@ -78,6 +118,42 @@
 					}
 				}
 				return res;
+			} else if(input.hasOwnProperty("let")) {
+				res = [];
+				res.push({
+					"function": {
+						"args": (function(iLet) {
+							var i,
+								res = [];
+							for(i in iLet.vars) {
+								if(iLet.vars.hasOwnProperty(i)) {
+									res.push(i);
+								}
+							}
+							return res;
+						})(input["let"]),
+						"begin": input["let"].begin,
+						"nameNew": input["let"].name
+					}
+				});
+				for(i in input["let"].vars) {
+					if(input["let"].vars.hasOwnProperty(i)) {
+						res.push(input["let"].vars[i]);
+					}
+				}
+				return walk(res, isTail);
+			} else if(input.hasOwnProperty("letrec")) {
+				res = ["saveEnv"];
+				for(i in input.letrec.vars) {
+					if(input.letrec.vars.hasOwnProperty(i)) {
+						res = res.concat(walk(input.letrec.vars[i]));
+						res.push("bind");
+						res.push(i);
+					}
+				}
+				res = res.concat(outputBegin(input.letrec.begin));
+				res.push("restoreEnv");
+				return res;
 			} else {
 				throw new Error("syntax error");
 			}
@@ -96,8 +172,9 @@
 				}
 				return id++;
 			},
-			setEnv(id, env) {
+			setEnv(id, env, name) {
 				funcs[id].env = env;
+				funcs[id].name = name;
 			},
 			getFunc(id) {
 				return funcs[id];
@@ -139,6 +216,7 @@
 			code = initCode,
 			env = environment,
 			stack = [],
+			toPush,
 			popped,
 			callee,
 			args,
@@ -147,7 +225,7 @@
 		function callBuiltin(callee, args) {
 			var i;
 			for(i = 0; i < args.length; i++) {
-				if(args[i].type === "func") {
+				if(args[i].type !== "literal") {
 					throw new Error("invalid argument");
 				}
 				args[i] = args[i].val;
@@ -163,6 +241,9 @@
 		function callFuncNew(callee) {
 			var envnew = createEnv(env),
 				callfunc = funcs.getFunc(callee.val);
+			if(callfunc.name) {
+				envnew.bind(callfunc.name, { type: "func", val: callee.val });
+			}
 			setUserFunc(callee, envnew, callfunc);
 			stack.push({ type: "call", pc: pc + 1, env: env, code: code, callId: callee.val });
 			pc = 0;
@@ -177,9 +258,13 @@
 					pc += 2;
 					break;
 				case "pushFunc":
-					funcs.setEnv(code[pc + 1], env);
-					stack.push({ type: "func", val: code[pc + 1] });
-					pc += 2;
+					funcs.setEnv(code[pc + 1], env, code[pc + 3]);
+					toPush = { type: "func", val: code[pc + 1] };
+					stack.push(toPush);
+					if(code[pc + 2]) {
+						env.bind(code[pc + 2], toPush);
+					}
+					pc += 4;
 					break;
 				case "var":
 					stack.push(env.find(code[pc + 1]));
@@ -188,6 +273,20 @@
 				case "stopArgs":
 					stack.push({ type: "stopArgs" });
 					pc++;
+					break;
+				case "createObj":
+					stack.push({ type: "literal", val: {} });
+					pc++;
+					break;
+				case "addObj":
+					popped = stack.pop();
+					if(stack[stack.length - 1].type !== "literal") {
+						throw new Error("internal error");
+					} else if(popped.type !== "literal") {
+						throw new Error("cannot push value which is valid in JSON");
+					}
+					stack[stack.length - 1].val[code[pc + 1]] = popped.val;
+					pc += 2;
 					break;
 				case "call":
 					callee = stack.pop();
@@ -221,10 +320,10 @@
 							}
 						}
 						if(i > 0) {
-							callFunc = funcs.getFunc(callee.val)
+							callfunc = funcs.getFunc(callee.val)
 							stack.legnth = i + 1;
 							envnew = createEnv(stack[stack.length - 1].env)
-							setUserFunc(callee, envnew, callFunc);
+							setUserFunc(callee, envnew, callfunc);
 							pc = 0;
 							code = callfunc.code;
 							env = envnew;
@@ -266,6 +365,20 @@
 					env.setVal(code[pc + 1], stack.pop());
 					pc += 2;
 					break;
+				case "saveEnv":
+					stack.push({ type: "saveEnv", env: env });
+					env = createEnv(env);
+					pc++;
+					break;
+				case "restoreEnv":
+					popped = stack.pop();
+					if(stack[stack.length - 1].type !== "saveEnv") {
+						throw new Error("internal error");
+					}
+					env = stack[stack.length - 1].env;
+					stack[stack.length - 1] = popped;
+					pc++;
+					break;
 				case "pushCc":
 					stack.push({
 						type: "cont",
@@ -299,6 +412,8 @@
 		bindBuiltin("add", function(a, b) { return a + b; });
 		bindBuiltin("sub", function(a, b) { return a - b; });
 		bindBuiltin("eqv", function(a, b) { return a === b; });
+		bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
+		bindBuiltin("ref", function(name, val) { return val[name]; });
 		genv.bind("callcc", {
 			type: "func",
 			val: funcs.putFunc(["x"], [
