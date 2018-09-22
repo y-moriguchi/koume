@@ -44,6 +44,7 @@
 				res,
 				resIf,
 				resElse,
+				elseAddrs,
 				func;
 			if(isArray(input)) {
 				res = ["stopArgs"];
@@ -81,8 +82,7 @@
 				func = funcs.putFunc(input["function"].args, res);
 				return ["pushFunc", func, input["function"].name, input["function"].nameNew];
 			} else if(input.hasOwnProperty("if")) {
-				res = [];
-				res = res.concat(walk(input["if"].cond));
+				res = walk(input["if"].cond);
 				resIf = walk(input["if"].then, isTail);
 				if(input["if"]["else"]) {
 					res.push("gotoElse");
@@ -96,6 +96,27 @@
 					res.push("gotoElse");
 					res.push(resIf.length);
 					res = res.concat(resIf);
+					res.push("push");
+					res.push(null);
+				}
+				return res;
+			} else if(input.hasOwnProperty("cond")) {
+				res = [];
+				elseAddrs = [];
+				for(i = 0; i < input.cond.length; i++) {
+					res = res.concat(walk(input.cond[i]["case"]));
+					resIf = walk(input.cond[i].then);
+					res.push("gotoElse");
+					res.push(resIf.length + (i < input.cond.length - 1 ? 2 : 0));
+					res = res.concat(resIf);
+					if(i < input.cond.length - 1) {
+						res.push("gotoAbs");
+						elseAddrs.push(res.length);
+						res.push(null);
+					}
+				}
+				for(i = 0; i < elseAddrs.length; i++) {
+					res[elseAddrs[i]] = res.length;
 				}
 				return res;
 			} else if(input.hasOwnProperty("define")) {
@@ -349,6 +370,9 @@
 					break;
 				case "goto":
 					pc += code[pc + 1] + 2;
+					break;
+				case "gotoAbs":
+					pc = code[pc + 1];
 					break;
 				case "gotoElse":
 					popped = stack.pop();
