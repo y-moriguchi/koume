@@ -128,6 +128,8 @@
 						res.push(i);
 					}
 				}
+				res.push("push");
+				res.push(null);
 				return res;
 			} else if(input.hasOwnProperty("set")) {
 				res = [];
@@ -138,6 +140,8 @@
 						res.push(i);
 					}
 				}
+				res.push("push");
+				res.push(null);
 				return res;
 			} else if(input.hasOwnProperty("let")) {
 				res = [];
@@ -260,8 +264,8 @@
 			}
 		}
 		function callFuncNew(callee) {
-			var envnew = createEnv(env),
-				callfunc = funcs.getFunc(callee.val);
+			var callfunc = funcs.getFunc(callee.val),
+				envnew = createEnv(callfunc.env);
 			if(callfunc.name) {
 				envnew.bind(callfunc.name, { type: "func", val: callee.val });
 			}
@@ -450,6 +454,13 @@
 		});
 		return genv;
 	}
+	function resultToString(val) {
+		if(val.type === "literal") {
+			return val.val;
+		} else {
+			return "#<" + val.type + ">";
+		}
+	}
 	function evalLang(input) {
 		var i,
 			res,
@@ -464,9 +475,9 @@
 			for(i = 0; i < input.length; i++) {
 				res = execTop(input[i]);
 			}
-			return res.val;
+			return resultToString(res);
 		} else {
-			return execTop(input).val;
+			return resultToString(execTop(input));
 		}
 	}
 	var LangModule = {
