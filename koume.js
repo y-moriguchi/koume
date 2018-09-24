@@ -27,6 +27,19 @@
 		}
 		return res;
 	}
+	function getValueOfOneAndOnlyField(obj, field) {
+		var res = undef;
+		for(i in obj) {
+			if(obj.hasOwnProperty(i)) {
+				if(res === undef) {
+					res = i;
+				} else {
+					return undef;
+				}
+			}
+		}
+		return res === field ? obj[field] : undef;
+	}
 	function traverse(input, funcs) {
 		function outputBegin(list, isTail) {
 			var i,
@@ -38,6 +51,31 @@
 				}
 			}
 			return res;
+		}
+		function walkqq(input) {
+			var i,
+				res,
+				uq;
+			if(isArray(input)) {
+				for(i = 0, res = ["list"]; i < input.length; i++) {
+					res.push(walkqq(input[i]));
+				}
+				return res;
+			} else if(typeof input === "object" && input !== null) {
+				if((uq = getValueOfOneAndOnlyField(input, "uq")) !== undef) {
+					return uq;
+				} else {
+					res = {};
+					for(i in input) {
+						if(input.hasOwnProperty(i)) {
+							res[i] = walkqq(input[i]);
+						}
+					}
+					return { "cons": res };
+				}
+			} else {
+				return { "q": input };
+			}
 		}
 		function walk(input, isTail) {
 			var i,
@@ -179,6 +217,8 @@
 				res = res.concat(outputBegin(input.letrec.begin));
 				res.push("restoreEnv");
 				return res;
+			} else if(input.hasOwnProperty("qq")) {
+				return walk(walkqq(input.qq));
 			} else {
 				throw new Error("syntax error");
 			}

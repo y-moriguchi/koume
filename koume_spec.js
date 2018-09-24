@@ -205,6 +205,29 @@ describe("Koume", function () {
 				}
 			], 55);
 		});
+		it("quasiqoute", function () {
+			equal([
+				{
+					"qq": {
+						"a": ["aaaa", 1, true, false, null],
+						"b": {
+							"aaa": 1,
+							"uq": 2
+						},
+						"c": {
+							"uq": ["add", 1, 2]
+						}
+					}
+				}
+			], {
+				"a": ["aaaa", 1, true, false, null],
+				"b": {
+					"aaa": 1,
+					"uq": 2
+				},
+				"c": 3
+			});
+		});
 	});
 
 	describe("tail recursion", function () {
