@@ -475,10 +475,61 @@
 	function createGlobalEnv(funcs) {
 		var genv = createEnv();
 		function bindBuiltin(name, func) {
-			genv.bind(name, { type: "builtin", val: func });
+			var i;
+			if(isArray(name)) {
+				for(i = 0; i < name.length; i++) {
+					genv.bind(name[i], { type: "builtin", val: func });
+				}
+			} else {
+				genv.bind(name, { type: "builtin", val: func });
+			}
 		}
-		bindBuiltin("add", function(a, b) { return a + b; });
-		bindBuiltin("sub", function(a, b) { return a - b; });
+		bindBuiltin(["add", "+"], function() {
+			var i,
+				res = 0;
+			for(i = 0; i < arguments.length; i++) {
+				res += arguments[i];
+			}
+			return res;
+		});
+		bindBuiltin(["sub", "-"], function() {
+			var i,
+				res;
+			if(arguments.length < 1) {
+				throw new Error("too few arguments");
+			} else if(arguments.length === 1) {
+				return -arguments[0];
+			} else {
+				res = arguments[0];
+				for(i = 1; i < arguments.length; i++) {
+					res -= arguments[i];
+				}
+				return res;
+			}
+		});
+		bindBuiltin(["mul", "*"], function() {
+			var i,
+				res = 1;
+			for(i = 0; i < arguments.length; i++) {
+				res *= arguments[i];
+			}
+			return res;
+		});
+		bindBuiltin(["div", "/"], function() {
+			var i,
+				res;
+			if(arguments.length < 1) {
+				throw new Error("too few arguments");
+			} else if(arguments.length === 1) {
+				return 1 / arguments[0];
+			} else {
+				res = arguments[0];
+				for(i = 1; i < arguments.length; i++) {
+					res /= arguments[i];
+				}
+				return res;
+			}
+		});
 		bindBuiltin("eqv", function(a, b) { return a === b; });
 		bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
 		bindBuiltin("ref", function(name, val) { return val[name]; });

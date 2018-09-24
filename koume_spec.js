@@ -377,4 +377,29 @@ describe("Koume", function () {
 			], 1);
 		});
 	});
+
+	describe("library", function () {
+		it("add", function () {
+			equal([["add", 765, 346]], 1111);
+			equal([["add", 1, 2, 3, 4, 5]], 15);
+			equal([["add"]], 0);
+		});
+		it("sub", function () {
+			equal([["sub", 2, 1]], 1);
+			equal([["sub", 3, 2, 1]], 0);
+			equal([["sub", 2]], -2);
+			expect(function() { equal([["sub"]]) }).toThrow();
+		});
+		it("mul", function () {
+			equal([["mul", 2, 3]], 6);
+			equal([["mul", 2, 3, 4, 5]], 120);
+			equal([["mul"]], 1);
+		});
+		it("div", function () {
+			equal([["div", 4, 2]], 2);
+			equal([["div", 6, 3, 2]], 1);
+			equal([["div", 2]], 0.5);
+			expect(function() { equal([["div"]]) }).toThrow();
+		});
+	});
 });
