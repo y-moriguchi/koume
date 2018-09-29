@@ -40,7 +40,47 @@
 		}
 		return res === field ? obj[field] : undef;
 	}
-	function traverse(input, funcs) {
+	function createMacroEnv(funcs) {
+		var macroNames = [],
+			env = createGlobalEnv(funcs),
+			me;
+		me = {
+			expand1: function(name, target) {
+				var expanded;
+				expanded = execVM(traverse([name, { q: target }], funcs, me), env, funcs);
+				if(expanded === null || expanded.type !== "literal" || expanded.val === null) {
+					throw new Error("macro cannot expand");
+				}
+				return expanded.val;
+			},
+			bindMacro: function(name, patterns) {
+				var res,
+					code;
+				res = {
+					"function": {
+						name: name,
+						args: ["target"],
+						begin: [
+							{
+								match: {
+									target: "target",
+									patterns: patterns
+								}
+							}
+						]
+					}
+				};
+				code = traverse(res, funcs, me);
+				execVM(code, env, funcs);
+				macroNames.push(name);
+			},
+			hasMacro: function(name) {
+				return macroNames.indexOf(name) >= 0;
+			}
+		};
+		return me;
+	}
+	function traverse(input, funcs, macroEnv) {
 		function outputBegin(list, isTail) {
 			var i,
 				res;
@@ -82,6 +122,7 @@
 				res,
 				resIf,
 				resElse,
+				resTarget,
 				elseAddrs,
 				func;
 			if(isArray(input)) {
@@ -219,8 +260,48 @@
 				return res;
 			} else if(input.hasOwnProperty("qq")) {
 				return walk(walkqq(input.qq));
+			} else if(input.hasOwnProperty("match")) {
+				res = [];
+				elseAddrs = [];
+				resTarget = walk(input.match.target);
+				for(i = 0; i < input.match.patterns.length; i++) {
+					if(i > 0) {
+						res.push("push");
+						res.push(null);
+						res.push("restoreEnv");
+						res.push("pop");
+					}
+					res.push("saveEnv");
+					res = res.concat(resTarget);
+					res.push("match");
+					res.push(input.match.patterns[i].pattern);
+					resIf = outputBegin(input.match.patterns[i].begin, isTail);
+					res.push("gotoElse");
+					res.push(resIf.length + 3);
+					res = res.concat(resIf);
+					res.push("restoreEnv");
+					res.push("gotoAbs");
+					elseAddrs.push(res.length);
+					res.push(null);
+				}
+				res.push("push");
+				res.push(null);
+				res.push("restoreEnv");
+				for(i = 0; i < elseAddrs.length; i++) {
+					res[elseAddrs[i]] = res.length;
+				}
+				return res;
+			} else if(macroEnv !== null && input.hasOwnProperty("defmacro")) {
+				macroEnv.bindMacro(input.defmacro.name, input.defmacro.patterns);
+				return [];
 			} else {
-				throw new Error("syntax error");
+				i = getOneAndOnlyField(input);
+				if(macroEnv && macroEnv.hasMacro(i)) {
+					res = macroEnv.expand1(i, input[i]);
+					return walk(res);
+				} else {
+					throw new Error("syntax error");
+				}
 			}
 		}
 		return walk(input, false);
@@ -314,6 +395,24 @@
 			pc = 0;
 			code = callfunc.code;
 			env = envnew;
+		}
+		function matchPattern(ptn, target) {
+			var i;
+			if(typeof ptn === "string") {
+				env.bind(ptn, { type: "literal", val: target });
+				return true;
+			} else if(ptn !== null && typeof ptn === "object" && target !== null && typeof target === "object") {
+				for(i in ptn) {
+					if(ptn.hasOwnProperty(i)) {
+						if(target[i] === undef || !matchPattern(ptn[i], target[i])) {
+							return false;
+						}
+					}
+				}
+				return true;
+			} else {
+				return ptn === target;
+			}
 		}
 		while(true) {
 			while(pc < code.length) {
@@ -456,6 +555,14 @@
 					});
 					pc++;
 					break;
+				case "match":
+					popped = stack.pop();
+					if(popped.type !== "literal") {
+						throw new Error("simple objects can only match");
+					}
+					stack.push({ type: "literal", val: matchPattern(code[pc + 1], popped.val) });
+					pc += 2;
+					break;
 				default:
 					throw new Error("internal error:" + code[pc]);
 				}
@@ -556,10 +663,11 @@
 		var i,
 			res,
 			funcs = createFuncs(),
-			genv = createGlobalEnv(funcs);
+			genv = createGlobalEnv(funcs),
+			macroEnv = createMacroEnv(funcs);
 		function execTop(input) {
 			var code;
-			code = traverse(input, funcs);
+			code = traverse(input, funcs, macroEnv);
 			return execVM(code, genv, funcs);
 		}
 		if(isArray(input)) {
