@@ -309,7 +309,9 @@
 	function createFuncs() {
 		var me,
 			funcs = {},
-			id = 1;
+			id = 1,
+			instances = {},
+			instanceId = 1;
 		me = {
 			putFunc(args, rest, code) {
 				funcs[id] = {
@@ -319,12 +321,21 @@
 				}
 				return id++;
 			},
-			setEnv(id, env, name) {
-				funcs[id].env = env;
-				funcs[id].name = name;
+			createInstance(id, env, name) {
+				instances[instanceId] = {
+					args: funcs[id].args,
+					rest: funcs[id].rest,
+					code: funcs[id].code,
+					env: env,
+					name: name
+				};
+				return instanceId++;
 			},
 			getFunc(id) {
 				return funcs[id];
+			},
+			getInstance(id) {
+				return instances[id];
 			}
 		};
 		return me;
@@ -389,7 +400,7 @@
 			}
 		}
 		function callFuncNew(callee) {
-			var callfunc = funcs.getFunc(callee.val),
+			var callfunc = funcs.getInstance(callee.val),
 				envnew = createEnv(callfunc.env);
 			if(callfunc.name) {
 				envnew.bind(callfunc.name, { type: "func", val: callee.val });
@@ -426,8 +437,7 @@
 					pc += 2;
 					break;
 				case "pushFunc":
-					funcs.setEnv(code[pc + 1], env, code[pc + 3]);
-					toPush = { type: "func", val: code[pc + 1] };
+					toPush = { type: "func", val: funcs.createInstance(code[pc + 1], env, code[pc + 3]) };
 					stack.push(toPush);
 					if(code[pc + 2]) {
 						env.bind(code[pc + 2], toPush);
@@ -512,7 +522,7 @@
 							}
 						}
 						if(i > 0) {
-							callfunc = funcs.getFunc(callee.val)
+							callfunc = funcs.getInstance(callee.val)
 							stack.legnth = i + 1;
 							envnew = stack[stack.length - 1].envnew;
 							setUserFunc(callee, envnew, callfunc);
@@ -707,24 +717,24 @@
 		bindBuiltin("p", function(print) { console.log(print); return null; });
 		genv.bind("callcc", {
 			type: "func",
-			val: funcs.putFunc(["x"], null, [
+			val: funcs.createInstance(funcs.putFunc(["x"], null, [
 				"stopArgs",
 				"pushCc",
 				"var",
 				"x",
 				"callTail"
-			])
+			]))
 		});
 		genv.bind("apply", {
 			type: "func",
-			val: funcs.putFunc(["f", "args"], null, [
+			val: funcs.createInstance(funcs.putFunc(["f", "args"], null, [
 				"var",
 				"args",
 				"applyArgs",
 				"var",
 				"f",
 				"callTail"
-			])
+			]))
 		});
 		execVM(traverse({
 			"function": {
