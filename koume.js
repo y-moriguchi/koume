@@ -11,6 +11,9 @@
 	function isArray(arg) {
 		return Object.prototype.toString.call(arg) === '[object Array]';
 	}
+	function isInteger(x) {
+		return typeof x === "number" && isFinite(x) && Math.floor(x) === x;
+	}
 	function getOneAndOnlyField(obj) {
 		var res = undef;
 		for(i in obj) {
@@ -686,8 +689,43 @@
 			}
 		});
 		bindBuiltin("eqv", function(a, b) { return a === b; });
+		function compareFunc(f) {
+			return function() {
+				var i;
+				for(i = 1; i < arguments.length; i++) {
+					if(!f(arguments[i - 1], arguments[i])) {
+						return false;
+					}
+				}
+				return true;
+			};
+		}
+		bindBuiltin("=", compareFunc(function(a, b) { return a === b; }));
+		bindBuiltin("!=", compareFunc(function(a, b) { return a !== b; }));
+		bindBuiltin("<", compareFunc(function(a, b) { return a < b; }));
+		bindBuiltin("<=", compareFunc(function(a, b) { return a <= b; }));
+		bindBuiltin(">", compareFunc(function(a, b) { return a > b; }));
+		bindBuiltin(">=", compareFunc(function(a, b) { return a >= b; }));
+		bindBuiltin(["not", "!"], function(a) { return !a; });
+		bindBuiltin("sin", function(x) { return Math.sin(x); });
+		bindBuiltin("cos", function(x) { return Math.cos(x); });
+		bindBuiltin("tan", function(x) { return Math.tan(x); });
+		bindBuiltin("asin", function(x) { return Math.asin(x); });
+		bindBuiltin("acos", function(x) { return Math.acos(x); });
+		bindBuiltin("atan", function(x) { return Math.atan(x); });
+		bindBuiltin("exp", function(x) { return Math.exp(x); });
+		bindBuiltin("expt", function(x, y) { return Math.pow(x, y); });
+		bindBuiltin("log", function(x) { return Math.log(x); });
 		bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
 		bindBuiltin("ref", function(name, val) { return val[name]; });
+		bindBuiltin("numberp", function(x) { return typeof x === "number"; });
+		bindBuiltin("integerp", function(x) { return isInteger(x); });
+		bindBuiltin("floor", function(x) { return Math.floor(x); });
+		bindBuiltin("ceiling", function(x) { return Math.ceil(x); });
+		bindBuiltin("trancate", function(x) { return x < 0 ? Math.ceil(x) : Math.floor(x); });
+		bindBuiltin("round", function(x) { return Math.round(x); });
+		bindBuiltin("sqrt", function(x) { return Math.sqrt(x); });
+		bindBuiltin("numbertostring", function(x, radix) { return x.toString(radix); });
 		bindBuiltin("keys", function(obj) {
 			var res = [];
 			for(i in obj) {
