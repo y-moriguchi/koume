@@ -726,6 +726,7 @@
 		bindBuiltin("round", function(x) { return Math.round(x); });
 		bindBuiltin("sqrt", function(x) { return Math.sqrt(x); });
 		bindBuiltin("numbertostring", function(x, radix) { return x.toString(radix); });
+		bindBuiltin("booleanp", function(x) { return typeof x === "boolean"; });
 		bindBuiltin("keys", function(obj) {
 			var res = [];
 			for(i in obj) {
