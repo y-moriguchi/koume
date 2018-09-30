@@ -59,11 +59,11 @@
 				res = {
 					"function": {
 						name: name,
-						args: ["target"],
+						args: ["_target"],
 						begin: [
 							{
 								match: {
-									target: "target",
+									target: "_target",
 									patterns: patterns
 								}
 							}
@@ -158,7 +158,7 @@
 				return outputBegin(input.begin, isTail);
 			} else if(input.hasOwnProperty("function")) {
 				res = outputBegin(input["function"].begin, true);
-				func = funcs.putFunc(input["function"].args, res);
+				func = funcs.putFunc(input["function"].args, input["function"].rest, res);
 				return ["pushFunc", func, input["function"].name, input["function"].nameNew];
 			} else if(input.hasOwnProperty("if")) {
 				res = walk(input["if"].cond);
@@ -311,9 +311,10 @@
 			funcs = {},
 			id = 1;
 		me = {
-			putFunc(args, code) {
+			putFunc(args, rest, code) {
 				funcs[id] = {
 					args: args,
+					rest: rest,
 					code: code
 				}
 				return id++;
@@ -338,7 +339,7 @@
 				} else if(parentEnv) {
 					return parentEnv.find(name);
 				} else {
-					return { type: "literal", val: undef };
+					throw new Error("variable is not bound: " + name);
 				}
 			},
 			bind: function(name, val) {
@@ -372,7 +373,7 @@
 			var i;
 			for(i = 0; i < args.length; i++) {
 				if(args[i].type !== "literal") {
-					throw new Error("invalid argument");
+					throw new Error("invalid argument: type: " + args[i].type);
 				}
 				args[i] = args[i].val;
 			}
@@ -383,6 +384,9 @@
 			for(i = 0; i < callfunc.args.length; i++) {
 				envnew.bind(callfunc.args[i], args[i]);
 			}
+			if(callfunc.rest) {
+				envnew.bind(callfunc.rest, { type: "args", val: args.slice(i) });
+			}
 		}
 		function callFuncNew(callee) {
 			var callfunc = funcs.getFunc(callee.val),
@@ -391,7 +395,7 @@
 				envnew.bind(callfunc.name, { type: "func", val: callee.val });
 			}
 			setUserFunc(callee, envnew, callfunc);
-			stack.push({ type: "call", pc: pc + 1, env: env, code: code, callId: callee.val });
+			stack.push({ type: "call", pc: pc + 1, env: env, envnew: envnew, code: code, callId: callee.val });
 			pc = 0;
 			code = callfunc.code;
 			env = envnew;
@@ -438,6 +442,17 @@
 					stack.push({ type: "stopArgs" });
 					pc++;
 					break;
+				case "applyArgs":
+					popped = stack.pop();
+					if(popped.type !== "literal" || !isArray(popped.val)) {
+						throw new Error("array required");
+					}
+					stack.push({ type: "stopArgs" });
+					for(i = popped.val.length - 1; i >= 0; i--) {
+						stack.push({ type: "literal", val: popped.val[i] });
+					}
+					pc++;
+					break;
 				case "createObj":
 					stack.push({ type: "literal", val: {} });
 					pc++;
@@ -468,8 +483,21 @@
 						pc = 1000;
 						code = callee.code;
 						env = callee.env;
+					} else if(callee.type === "args") {
+						if(args.length !== 1) {
+							throw new Error("length of argument calling rest parameter must be 1");
+						} else if(args[0].type !== "literal") {
+							throw new Error("invalid message: type: " + args[0].type);
+						} else if(typeof args[0].val === "number") {
+							stack.push(callee.val[args[0].val]);
+						} else if(args[0].val === "length") {
+							stack.push({ type: "literal", val: callee.val[args[0].val] });
+						} else {
+							throw new Error("invalid message: " + args[0].val);
+						}
+						pc++;
 					} else {
-						throw new Error("cannot be applied");
+						throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
 					}
 					break;
 				case "callTail":
@@ -486,7 +514,7 @@
 						if(i > 0) {
 							callfunc = funcs.getFunc(callee.val)
 							stack.legnth = i + 1;
-							envnew = createEnv(stack[stack.length - 1].env)
+							envnew = stack[stack.length - 1].envnew;
 							setUserFunc(callee, envnew, callfunc);
 							pc = 0;
 							code = callfunc.code;
@@ -503,8 +531,21 @@
 						pc = 1000;
 						code = callee.code;
 						env = callee.env;
+					} else if(callee.type === "args") {
+						if(args.length !== 1) {
+							throw new Error("length of argument calling rest parameter must be 1");
+						} else if(args[0].type !== "literal") {
+							throw new Error("invalid message: type: " + args[0].type);
+						} else if(typeof args[0].val === "number") {
+							stack.push(callee.val[args[0].val]);
+						} else if(args[0].val === "length") {
+							stack.push({ type: "literal", val: callee.val[args[0].val] });
+						} else {
+							throw new Error("invalid message: " + args[0].val);
+						}
+						pc++;
 					} else {
-						throw new Error("cannot be applied");
+						throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
 					}
 					break;
 				case "pop":
@@ -640,9 +681,33 @@
 		bindBuiltin("eqv", function(a, b) { return a === b; });
 		bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
 		bindBuiltin("ref", function(name, val) { return val[name]; });
+		bindBuiltin("keys", function(obj) {
+			var res = [];
+			for(i in obj) {
+				if(obj.hasOwnProperty(i)) {
+					res.push[i];
+				}
+			}
+			return res;
+		});
+		bindBuiltin("length", function(obj) {
+			return obj.length;
+		});
+		bindBuiltin("max", function() { return Math.max.apply(null, arguments); });
+		bindBuiltin("min", function() { return Math.min.apply(null, arguments); });
+		bindBuiltin("concat", function() {
+			var i = 0,
+				res = [];
+			for(i = 0; i < arguments.length; i++) {
+				res = res.concat(arguments[i]);
+			}
+			return res;
+		});
+		bindBuiltin("error", function(msg) { throw new Error(msg); });
+		bindBuiltin("p", function(print) { console.log(print); return null; });
 		genv.bind("callcc", {
 			type: "func",
-			val: funcs.putFunc(["x"], [
+			val: funcs.putFunc(["x"], null, [
 				"stopArgs",
 				"pushCc",
 				"var",
@@ -650,6 +715,119 @@
 				"callTail"
 			])
 		});
+		genv.bind("apply", {
+			type: "func",
+			val: funcs.putFunc(["f", "args"], null, [
+				"var",
+				"args",
+				"applyArgs",
+				"var",
+				"f",
+				"callTail"
+			])
+		});
+		execVM(traverse({
+			"function": {
+				"name": "arraymap",
+				"args": ["f"],
+				"rest": "args",
+				"begin": [
+					{
+						"if": {
+							"cond": ["eqv", 0, ["args", { "q": "length" }]],
+							"then": ["error", { "q": "one or more argument reqired" }]
+						}
+					},
+					{
+						"let": {
+							"vars": {
+								"to": [
+									"apply",
+									"min",
+									{
+										"let": {
+											"name": "loop1",
+											"vars": {
+												"i": 0
+											},
+											"begin": [
+												{
+													"if": {
+														"cond": ["eqv", "i", ["args", { "q": "length" }]],
+														"then": ["list"],
+														"else": [
+															"concat",
+															["list", ["length", ["args", "i"]]],
+															["loop1", ["add", "i", 1]]
+														]
+													}
+												}
+											]
+										}
+									}
+								]
+							},
+							"begin": [
+								{
+									"let": {
+										"name": "loop1",
+										"vars": {
+											"i": 0
+										},
+										"begin": [
+											{
+												"let": {
+													"vars": {
+														"applied": {
+															"let": {
+																"name": "loop2",
+																"vars": {
+																	"j": 0
+																},
+																"begin": [
+																	{
+																		"if": {
+																			"cond": ["eqv", "j", ["args", { "q": "length" }]],
+																			"then": ["list"],
+																			"else": [
+																				"concat",
+																				["list", ["ref", "i", ["args", "j"]]],
+																				["loop2", ["add", "j", 1]]
+																			]
+																		}
+																	}
+																]
+															}
+														}
+													},
+													"begin": [
+														{
+															"if": {
+																"cond": ["eqv", "i", "to"],
+																"then": ["list"],
+																"else": [
+																	"concat",
+																	[
+																		"apply",
+																		"f",
+																		"applied"
+																	],
+																	["loop1", ["add", "i", 1]]
+																]
+															}
+														}
+													]
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				]
+			}
+		}, funcs), genv, funcs);
 		return genv;
 	}
 	function resultToString(val) {
