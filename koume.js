@@ -411,6 +411,23 @@
 			code = callfunc.code;
 			env = envnew;
 		}
+		function callArgs(isArgs) {
+			if(args.length !== 1) {
+				throw new Error("length of argument calling rest parameter must be 1");
+			} else if(args[0].type !== "literal") {
+				throw new Error("invalid message: type: " + args[0].type);
+			} else if(typeof args[0].val === "number") {
+				if(isArgs) {
+					stack.push(callee.val[args[0].val]);
+				} else {
+					stack.push({ type: "literal", val: callee.val[args[0].val] });
+				}
+			} else if(args[0].val === "length") {
+				stack.push({ type: "literal", val: callee.val[args[0].val] });
+			} else {
+				throw new Error("invalid message: " + args[0].val);
+			}
+		}
 		function matchPattern(ptn, target) {
 			var i;
 			if(typeof ptn === "string") {
@@ -493,18 +510,8 @@
 						pc = 1000;
 						code = callee.code;
 						env = callee.env;
-					} else if(callee.type === "args") {
-						if(args.length !== 1) {
-							throw new Error("length of argument calling rest parameter must be 1");
-						} else if(args[0].type !== "literal") {
-							throw new Error("invalid message: type: " + args[0].type);
-						} else if(typeof args[0].val === "number") {
-							stack.push(callee.val[args[0].val]);
-						} else if(args[0].val === "length") {
-							stack.push({ type: "literal", val: callee.val[args[0].val] });
-						} else {
-							throw new Error("invalid message: " + args[0].val);
-						}
+					} else if(callee.type === "args" || (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
+						callArgs(callee.type === "args");
 						pc++;
 					} else {
 						throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
@@ -541,18 +548,8 @@
 						pc = 1000;
 						code = callee.code;
 						env = callee.env;
-					} else if(callee.type === "args") {
-						if(args.length !== 1) {
-							throw new Error("length of argument calling rest parameter must be 1");
-						} else if(args[0].type !== "literal") {
-							throw new Error("invalid message: type: " + args[0].type);
-						} else if(typeof args[0].val === "number") {
-							stack.push(callee.val[args[0].val]);
-						} else if(args[0].val === "length") {
-							stack.push({ type: "literal", val: callee.val[args[0].val] });
-						} else {
-							throw new Error("invalid message: " + args[0].val);
-						}
+					} else if(callee.type === "args" || (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
+						callArgs(callee.type === "args");
 						pc++;
 					} else {
 						throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
@@ -801,7 +798,7 @@
 																			"then": ["list"],
 																			"else": [
 																				"concat",
-																				["list", ["ref", "i", ["args", "j"]]],
+																				["list", [["args", "j"], "i"]],
 																				["loop2", ["add", "j", 1]]
 																			]
 																		}
