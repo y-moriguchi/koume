@@ -14,6 +14,16 @@
 	function isInteger(x) {
 		return typeof x === "number" && isFinite(x) && Math.floor(x) === x;
 	}
+	function tranc(x) {
+		return x < 0 ? Math.ceil(x) : Math.floor(x);
+	}
+	function sign(x) {
+		x = +x;
+		if(x === 0 || isNaN(x)) {
+			return x;
+		}
+		return x > 0 ? 1 : -1;
+	}
 	function getOneAndOnlyField(obj) {
 		var res = undef;
 		for(i in obj) {
@@ -716,6 +726,16 @@
 				return res;
 			}
 		});
+		bindBuiltin("quotient", function(a, b) {
+			return tranc(a / b);
+		});
+		bindBuiltin("remainder", function(a, b) {
+			return a % b;
+		});
+		bindBuiltin("modulo", function(a, b) {
+			var sgn = sign(a) * sign(b);
+			return sgn < 0 ? b + a % b : a % b;
+		});
 		bindBuiltin("eqv", function(a, b) { return a === b; });
 		function compareFunc(f) {
 			return function() {
@@ -764,7 +784,7 @@
 		bindBuiltin("integerp", function(x) { return isInteger(x); });
 		bindBuiltin("floor", function(x) { return Math.floor(x); });
 		bindBuiltin("ceiling", function(x) { return Math.ceil(x); });
-		bindBuiltin("trancate", function(x) { return x < 0 ? Math.ceil(x) : Math.floor(x); });
+		bindBuiltin("trancate", function(x) { return tranc(x); });
 		bindBuiltin("round", function(x) { return Math.round(x); });
 		bindBuiltin("sqrt", function(x) { return Math.sqrt(x); });
 		bindBuiltin("numbertostring", function(x, radix) { return x.toString(radix); });
