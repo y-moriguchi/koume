@@ -166,7 +166,7 @@
 			} else if(input.hasOwnProperty("if")) {
 				res = walk(input["if"].cond);
 				resIf = walk(input["if"].then, isTail);
-				if(input["if"]["else"]) {
+				if(input["if"]["else"] !== undef) {
 					res.push("gotoElse");
 					res.push(resIf.length + 2);
 					res = res.concat(resIf);
@@ -178,6 +178,8 @@
 					res.push("gotoElse");
 					res.push(resIf.length);
 					res = res.concat(resIf);
+					res.push("goto");
+					res.push(2);
 					res.push("push");
 					res.push(null);
 				}
@@ -303,7 +305,7 @@
 					res = macroEnv.expand1(i, input[i]);
 					return walk(res);
 				} else {
-					throw new Error("syntax error");
+					throw new Error("syntax error: " + i);
 				}
 			}
 		}
@@ -570,7 +572,7 @@
 					break;
 				case "gotoElse":
 					popped = stack.pop();
-					if(popped.type === "literal" && !popped.val) {
+					if(popped.type === "literal" && popped.val === false) {
 						pc += code[pc + 1];
 					}
 					pc += 2;
@@ -717,6 +719,20 @@
 		bindBuiltin("expt", function(x, y) { return Math.pow(x, y); });
 		bindBuiltin("log", function(x) { return Math.log(x); });
 		bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
+		bindBuiltin("first", function(list) {
+			if(list.length > 0) {
+				return list[0];
+			} else {
+				throw new Error("empty array");
+			}
+		});
+		bindBuiltin("rest", function(list) {
+			if(list.length > 0) {
+				return list.slice(1);
+			} else {
+				throw new Error("empty array");
+			}
+		});
 		bindBuiltin("ref", function(name, val) { return val[name]; });
 		bindBuiltin("numberp", function(x) { return typeof x === "number"; });
 		bindBuiltin("integerp", function(x) { return isInteger(x); });
@@ -894,6 +910,36 @@
 			code = traverse(input, funcs, macroEnv);
 			return execVM(code, genv, funcs);
 		}
+		function initMacro() {
+			execTop({
+				"defmacro": {
+					"name": "or",
+					"patterns": [
+						{
+							"pattern": "list",
+							"begin": [
+								{
+									"if": {
+										"cond": [">", ["list", { "q": "length" }], 0],
+										"then": {
+											"qq": {
+												"if": {
+													"cond": { "uq": ["first", "list"] },
+													"then": { "uq": ["first", "list"] },
+													"else": { "or": { "uq": ["rest", "list"] } }
+												}
+											}
+										},
+										"else": false
+									}
+								}
+							]
+						}
+					]
+				}
+			});
+		}
+		initMacro();
 		if(isArray(input)) {
 			for(i = 0; i < input.length; i++) {
 				res = execTop(input[i]);
