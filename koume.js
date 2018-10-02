@@ -126,6 +126,11 @@
 				resIf,
 				resElse,
 				resTarget,
+				lIndex,
+				varRe,
+				matched,
+				props,
+				resProp,
 				elseAddrs,
 				func;
 			if(isArray(input)) {
@@ -296,6 +301,29 @@
 					res[elseAddrs[i]] = res.length;
 				}
 				return res;
+			} else if(input.hasOwnProperty("sq")) {
+				if(typeof input.sq !== "string") {
+					throw new Error("string literal required: " + input.sq);
+				}
+				res = ["stringappend"];
+				lIndex = 0;
+				varRe = /\$(?:\{([^\}]+)\}|([^ \t\n]+))/g;
+				while(!!(matched = varRe.exec(input.sq))) {
+					if(lIndex < matched.index) {
+						res.push({ q: input.sq.substring(lIndex, matched.index) });
+					}
+					props = (matched[1] ? matched[1] : matched[2]).split(".");
+					resProp = props[0];
+					for(i = 1; i < props.length; i++) {
+						resProp = [resProp, { q: props[i] }];
+					}
+					res.push(resProp);
+					lIndex = varRe.lastIndex;
+				}
+				if(lIndex < input.sq.length) {
+					res.push({ q: input.sq.substring(lIndex, input.sq.length) });
+				}
+				return walk(res);
 			} else if(macroEnv !== null && input.hasOwnProperty("defmacro")) {
 				macroEnv.bindMacro(input.defmacro.name, input.defmacro.patterns);
 				return [];
@@ -421,13 +449,11 @@
 				throw new Error("length of argument calling rest parameter must be 1");
 			} else if(args[0].type !== "literal") {
 				throw new Error("invalid message: type: " + args[0].type);
-			} else if(typeof args[0].val === "number") {
-				if(isArgs) {
-					stack.push(callee.val[args[0].val]);
-				} else {
-					stack.push({ type: "literal", val: callee.val[args[0].val] });
-				}
 			} else if(args[0].val === "length") {
+				stack.push({ type: "literal", val: callee.val[args[0].val] });
+			} else if(isArgs && typeof args[0].val === "number") {
+				stack.push(callee.val[args[0].val]);
+			} else if(!isArgs && callee.val.hasOwnProperty(args[0].val)) {
 				stack.push({ type: "literal", val: callee.val[args[0].val] });
 			} else {
 				throw new Error("invalid message: " + args[0].val);
@@ -757,6 +783,14 @@
 		});
 		bindBuiltin("max", function() { return Math.max.apply(null, arguments); });
 		bindBuiltin("min", function() { return Math.min.apply(null, arguments); });
+		bindBuiltin("stringappend", function() {
+			var i,
+				res = "";
+			for(i = 0; i < arguments.length; i++) {
+				res += arguments[i];
+			}
+			return res;
+		});
 		bindBuiltin("concat", function() {
 			var i = 0,
 				res = [];
