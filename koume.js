@@ -105,13 +105,14 @@
 			}
 			return res;
 		}
-		function walkqq(input) {
+		function walkqqProto(input, list, cons) {
 			var i,
 				res,
+				resq,
 				uq;
 			if(isArray(input)) {
-				for(i = 0, res = ["list"]; i < input.length; i++) {
-					res.push(walkqq(input[i]));
+				for(i = 0, res = [list]; i < input.length; i++) {
+					res.push(walkqqProto(input[i], list, cons));
 				}
 				return res;
 			} else if(typeof input === "object" && input !== null) {
@@ -121,14 +122,22 @@
 					res = {};
 					for(i in input) {
 						if(input.hasOwnProperty(i)) {
-							res[i] = walkqq(input[i]);
+							res[i] = walkqqProto(input[i], list, cons);
 						}
 					}
-					return { "cons": res };
+					resq = {};
+					resq[cons] = res;
+					return resq;
 				}
 			} else {
 				return { "q": input };
 			}
+		}
+		function walkqq(input) {
+			return walkqqProto(input, "list", "cons");
+		}
+		function walktq(input) {
+			return walkqqProto(input, "values", "tuple");
 		}
 		function walk(input, isTail) {
 			var i,
@@ -290,6 +299,8 @@
 				return res;
 			} else if(input.hasOwnProperty("qq")) {
 				return walk(walkqq(input.qq));
+			} else if(input.hasOwnProperty("tq")) {
+				return walk(walktq(input.tq));
 			} else if(input.hasOwnProperty("match")) {
 				res = [];
 				elseAddrs = [];
@@ -443,6 +454,9 @@
 			}
 			stack.push({ type: "literal", val: callee.val.apply(null, args) });
 		}
+		function callBuiltinValues(callee, args) {
+			stack.push(callee.val.apply(null, args));
+		}
 		function setUserFunc(callee, envnew, callfunc) {
 			var i;
 			for(i = 0; i < callfunc.args.length; i++) {
@@ -566,6 +580,9 @@
 					} else if(callee.type === "builtin") {
 						callBuiltin(callee, args);
 						pc++;
+					} else if(callee.type === "builtinvalues") {
+						callBuiltinValues(callee, args);
+						pc++;
 					} else if(callee.type === "cont") {
 						stack = callee.stack.slice();
 						stack.push(args[0]);
@@ -605,6 +622,9 @@
 						}
 					} else if(callee.type === "builtin") {
 						callBuiltin(callee, args);
+						pc++;
+					} else if(callee.type === "builtinvalues") {
+						callBuiltinValues(callee, args);
 						pc++;
 					} else if(callee.type === "cont") {
 						stack = callee.stack.slice();
@@ -703,6 +723,16 @@
 				}
 			} else {
 				genv.bind(name, { type: "builtin", val: func });
+			}
+		}
+		function bindBuiltinValues(name, func) {
+			var i;
+			if(isArray(name)) {
+				for(i = 0; i < name.length; i++) {
+					genv.bind(name[i], { type: "builtinvalues", val: func });
+				}
+			} else {
+				genv.bind(name, { type: "builtinvalues", val: func });
 			}
 		}
 		bindBuiltin(["add", "+"], function() {
@@ -846,6 +876,12 @@
 		});
 		bindBuiltin("error", function(msg) { throw new Error(msg); });
 		bindBuiltin("p", function(print) { console.log(print); return null; });
+		bindBuiltinValues("values", function() {
+			return {
+				"type": "args",
+				"val": Array.prototype.slice.call(arguments)
+			};
+		});
 		genv.bind("callcc", {
 			type: "func",
 			val: funcs.createInstance(funcs.putFunc(["x"], null, [
