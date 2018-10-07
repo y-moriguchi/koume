@@ -793,7 +793,7 @@
 			var res = [];
 			for(i in obj) {
 				if(obj.hasOwnProperty(i)) {
-					res.push[i];
+					res.push(i);
 				}
 			}
 			return res;
@@ -985,6 +985,63 @@
 											}
 										},
 										"else": false
+									}
+								}
+							]
+						}
+					]
+				}
+			});
+			execTop({
+				"defmacro": {
+					"name": "message",
+					"patterns": [
+						{
+							"pattern": {
+								"extends": "_extend",
+								"messages": "obj"
+							},
+							"begin": [
+								{
+									"qq": {
+										"function": {
+											"args": ["_message"],
+											"begin": [
+												{
+													"uq": {
+														"let": {
+															"name": "loop",
+															"vars": {
+																"lst": ["keys", "obj"]
+															},
+															"begin": [
+																{
+																	"if": {
+																		"cond": [">", ["lst", { "q": "length" }], 0],
+																		"then": {
+																			"qq": {
+																				"if": {
+																					"cond": ["eqv", "_message", { "q": { "uq": ["lst", 0] }}],
+																					"then": { "uq": ["obj", ["lst", 0]] },
+																					"else": { "uq": ["loop", ["rest", "lst"]] }
+																				}
+																			}
+																		},
+																		"else": {
+																			"if": {
+																				"cond": "_extend",
+																				"then": ["list", "_extend", { "q": "_message" }],
+																				"else": { "q": ["error", { "q": "message not found" }]}
+																			}
+																		}
+																	}
+																}
+															]
+														}
+													}
+												}
+											]
+										}
 									}
 								}
 							]
