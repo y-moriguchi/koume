@@ -172,6 +172,16 @@
 					}
 				}
 				return res;
+			} else if(input.hasOwnProperty("tuple")) {
+				res = ["createTuple"];
+				for(i in input.tuple) {
+					if(input.tuple.hasOwnProperty(i)) {
+						res = res.concat(walk(input.tuple[i]));
+						res.push("addTuple");
+						res.push(i);
+					}
+				}
+				return res;
 			} else if(input.hasOwnProperty("begin")) {
 				return outputBegin(input.begin, isTail);
 			} else if(input.hasOwnProperty("function")) {
@@ -454,16 +464,18 @@
 			code = callfunc.code;
 			env = envnew;
 		}
-		function callArgs(isArgs) {
+		function callArgs(argsType) {
 			if(args.length !== 1) {
 				throw new Error("length of argument calling rest parameter must be 1");
 			} else if(args[0].type !== "literal") {
 				throw new Error("invalid message: type: " + args[0].type);
 			} else if(args[0].val === "length") {
 				stack.push({ type: "literal", val: callee.val[args[0].val] });
-			} else if(isArgs && typeof args[0].val === "number") {
+			} else if(argsType === "args" && typeof args[0].val === "number") {
 				stack.push(callee.val[args[0].val]);
-			} else if(!isArgs && callee.val.hasOwnProperty(args[0].val)) {
+			} else if(argsType === "tuple" && callee.val.hasOwnProperty(args[0].val)) {
+				stack.push(callee.val[args[0].val]);
+			} else if(argsType === "literal" && callee.val.hasOwnProperty(args[0].val)) {
 				stack.push({ type: "literal", val: callee.val[args[0].val] });
 			} else {
 				throw new Error("invalid message: " + args[0].val);
@@ -535,6 +547,15 @@
 					stack[stack.length - 1].val[code[pc + 1]] = popped.val;
 					pc += 2;
 					break;
+				case "createTuple":
+					stack.push({ type: "tuple", val: {} });
+					pc++;
+					break;
+				case "addTuple":
+					popped = stack.pop();
+					stack[stack.length - 1].val[code[pc + 1]] = popped;
+					pc += 2;
+					break;
 				case "call":
 					callee = stack.pop();
 					for(args = []; (popped = stack.pop()).type !== "stopArgs";) {
@@ -551,8 +572,10 @@
 						pc = 1000;
 						code = callee.code;
 						env = callee.env;
-					} else if(callee.type === "args" || (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
-						callArgs(callee.type === "args");
+					} else if(callee.type === "args" ||
+							callee.type === "tuple" ||
+							(callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
+						callArgs(callee.type);
 						pc++;
 					} else {
 						throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
@@ -589,8 +612,10 @@
 						pc = 1000;
 						code = callee.code;
 						env = callee.env;
-					} else if(callee.type === "args" || (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
-						callArgs(callee.type === "args");
+					} else if(callee.type === "args" ||
+							 callee.type === "tuple" ||
+							 (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
+						callArgs(callee.type);
 						pc++;
 					} else {
 						throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
@@ -903,7 +928,13 @@
 																"begin": [
 																	{
 																		"if": {
-																			"cond": ["eqv", "j", ["args", { "q": "length" }]],
+																			"cond": {
+																				"if": {
+																					"cond": ["eqv", "i", "to"],
+																					"then": true,
+																					"else": ["eqv", "j", ["args", { "q": "length" }]]
+																				}
+																			},
 																			"then": ["list"],
 																			"else": [
 																				"concat",
@@ -923,11 +954,7 @@
 																"then": ["list"],
 																"else": [
 																	"concat",
-																	[
-																		"apply",
-																		"f",
-																		"applied"
-																	],
+																	["apply", "f", "applied"],
 																	["loop1", ["add", "i", 1]]
 																]
 															}
@@ -985,6 +1012,39 @@
 											}
 										},
 										"else": false
+									}
+								}
+							]
+						}
+					]
+				}
+			});
+			execTop({
+				"defmacro": {
+					"name": "and",
+					"patterns": [
+						{
+							"pattern": "list",
+							"begin": [
+								{
+									"if": {
+										"cond": [">", ["list", { "q": "length" }], 0],
+										"then": {
+											"if": {
+												"cond": [">", ["list", { "q": "length" }], 1],
+												"then": {
+													"qq": {
+														"if": {
+															"cond": { "uq": ["first", "list"] },
+															"then": { "and": { "uq": ["rest", "list"] } },
+															"else": false
+														}
+													}
+												},
+												"else": ["first", "list"],
+											}
+										},
+										"else": true
 									}
 								}
 							]
