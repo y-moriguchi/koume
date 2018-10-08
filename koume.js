@@ -859,6 +859,41 @@
 			}
 			return res;
 		});
+		bindBuiltin("equal", function(obj1, obj2) {
+			function isEqual(obj1, obj2) {
+				var i;
+				if(isArray(obj1) && isArray(obj2)) {
+					if(obj1.length !== obj2.length) {
+						return false;
+					}
+					for(i = 0; i < obj1.length; i++) {
+						if(!isEqual(obj1[i], obj2[i])) {
+							return false;
+						}
+					}
+					return true;
+				} else if(typeof obj1 === "object" && obj1 !== null && typeof obj2 === "object" && obj2 !== null) {
+					for(i in obj1) {
+						if(obj1.hasOwnProperty(i)) {
+							if(obj2[i] === undef || !isEqual(obj1[i], obj2[i])) {
+								return false;
+							}
+						}
+					}
+					for(i in obj2) {
+						if(obj2.hasOwnProperty(i)) {
+							if(obj1[i] === undef) {
+								return false;
+							}
+						}
+					}
+					return true;
+				} else {
+					return obj1 === obj2;
+				}
+			}
+			return isEqual(obj1, obj2);
+		});
 		bindBuiltin("length", function(obj) {
 			return obj.length;
 		});
