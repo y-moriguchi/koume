@@ -489,6 +489,12 @@
 				stack.push(callee.val[args[0].val]);
 			} else if(argsType === "tuple" && callee.val.hasOwnProperty(args[0].val)) {
 				stack.push(callee.val[args[0].val]);
+			} else if(argsType === "literal" &&
+					typeof callee.val === "string" &&
+					typeof args[0].val === "number" &&
+					args[0].val >= 0 &&
+					args[0].val < callee.val.length) {
+				stack.push({ type: "literal", val: callee.val.charAt(args[0].val) });
 			} else if(argsType === "literal" && callee.val.hasOwnProperty(args[0].val)) {
 				stack.push({ type: "literal", val: callee.val[args[0].val] });
 			} else {
@@ -850,6 +856,8 @@
 		bindBuiltin("sqrt", function(x) { return Math.sqrt(x); });
 		bindBuiltin("numbertostring", function(x, radix) { return x.toString(radix); });
 		bindBuiltin("booleanp", function(x) { return typeof x === "boolean"; });
+		bindBuiltin("nullp", function(x) { return x === null; });
+		bindBuiltin("arrayp", function(x) { return isArray(x); });
 		bindBuiltin("keys", function(obj) {
 			var res = [];
 			for(i in obj) {
@@ -907,6 +915,29 @@
 			}
 			return res;
 		});
+		bindBuiltin("string=", compareFunc(function(a, b) { return a === b; }));
+		bindBuiltin("stringci=", compareFunc(function(a, b) {
+			return a.toUpperCase() === b.toUpperCase();
+		}));
+		bindBuiltin("string<", compareFunc(function(a, b) { return a < b; }));
+		bindBuiltin("string<=", compareFunc(function(a, b) { return a <= b; }));
+		bindBuiltin("string>", compareFunc(function(a, b) { return a > b; }));
+		bindBuiltin("string>=", compareFunc(function(a, b) { return a >= b; }));
+		bindBuiltin("stringci<", compareFunc(function(a, b) {
+			return a.toUpperCase() < b.toUpperCase();
+		}));
+		bindBuiltin("stringci<=", compareFunc(function(a, b) {
+			return a.toUpperCase() <= b.toUpperCase();
+		}));
+		bindBuiltin("stringci>", compareFunc(function(a, b) {
+			return a.toUpperCase() > b.toUpperCase();
+		}));
+		bindBuiltin("stringci>=", compareFunc(function(a, b) {
+			return a.toUpperCase() >= b.toUpperCase();
+		}));
+		bindBuiltin("substring", function(str, start, end) {
+			return str.substring(start, end);
+		});
 		bindBuiltin("concat", function() {
 			var i = 0,
 				res = [];
@@ -917,6 +948,12 @@
 		});
 		bindBuiltin("error", function(msg) { throw new Error(msg); });
 		bindBuiltin("p", function(print) { console.log(print); return null; });
+		bindBuiltinValues("functionp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "func" || obj.type === "builtin" || obj.type === "builtinvalues" || obj.type === "cont"
+			};
+		});
 		bindBuiltinValues("values", function() {
 			return {
 				"type": "args",
