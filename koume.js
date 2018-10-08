@@ -835,6 +835,12 @@
 			}
 		});
 		bindBuiltin("ref", function(name, val) { return val[name]; });
+		bindBuiltin("setprop", function(name, obj, val) {
+			if(typeof obj !== "object" || obj === null) {
+				throw new Error("object or array required: " + obj);
+			}
+			return obj[name] = val;
+		});
 		bindBuiltin("numberp", function(x) { return typeof x === "number"; });
 		bindBuiltin("integerp", function(x) { return isInteger(x); });
 		bindBuiltin("floor", function(x) { return Math.floor(x); });
@@ -999,6 +1005,48 @@
 												}
 											}
 										]
+									}
+								}
+							]
+						}
+					}
+				]
+			}
+		}, funcs), genv, funcs);
+		execVM(traverse({
+			"function": {
+				"name": "objectmap",
+				"args": ["f", "obj"],
+				"begin": [
+					{
+						"define": {
+							"res": {
+								"cons": {}
+							},
+							"keylist": ["keys", "obj"]
+						}
+					},
+					{
+						"let": {
+							"name": "loop",
+							"vars": {
+								"i": 0
+							},
+							"begin": [
+								{
+									"if": {
+										"cond": ["<", "i", ["keylist", { "q": "length" }]],
+										"then": {
+											"begin": [
+												["setprop",
+													["keylist", "i"],
+													"res",
+													["apply", "f", ["list", ["obj", ["keylist", "i"]]]]
+												],
+												["loop", ["add", "i", 1]]
+											]
+										},
+										"else": "res"
 									}
 								}
 							]
