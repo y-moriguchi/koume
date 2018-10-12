@@ -63,7 +63,7 @@
 				var expanded;
 				expanded = execVM(traverse([name, { q: target }], funcs, me), env, funcs);
 				if(expanded === null || expanded.type !== "literal" || expanded.val === null) {
-					throw new Error("macro cannot expand");
+					throw new Error("macro cannot be expanded");
 				}
 				return expanded.val;
 			},
@@ -166,13 +166,10 @@
 				return ["push", input];
 			} else if(input.hasOwnProperty("q")) {
 				return ["push", input.q];
-			} else if(input.hasOwnProperty("ref")) {
-				res = ["ref"];
-				i = getOneAndOnlyField(input.ref);
-				res.push({ "q": i });
-				res.push(input.ref[i]);
-				return walk(res, isTail);
 			} else if(input.hasOwnProperty("cons")) {
+				if(input.cons === null || typeof input.cons !== "object") {
+					throw new Error("cons clause must be an object");
+				}
 				res = ["createObj"];
 				for(i in input.cons) {
 					if(input.cons.hasOwnProperty(i)) {
@@ -183,6 +180,9 @@
 				}
 				return res;
 			} else if(input.hasOwnProperty("tuple")) {
+				if(input.cons === null || typeof input.cons !== "object") {
+					throw new Error("tuple clause must be an object");
+				}
 				res = ["createTuple"];
 				for(i in input.tuple) {
 					if(input.tuple.hasOwnProperty(i)) {
@@ -193,12 +193,39 @@
 				}
 				return res;
 			} else if(input.hasOwnProperty("begin")) {
+				if(!isArray(input.begin)) {
+					throw new Error("begin clause must be an array");
+				}
 				return outputBegin(input.begin, isTail);
 			} else if(input.hasOwnProperty("function")) {
+				if(input["function"].begin === undef) {
+					throw new Error("body of function required");
+				} else if(!isArray(input["function"].begin)) {
+					throw new Error("body of function must be an array");
+				} else if(input["function"].args === undef) {
+					throw new Error("arguments of function required");
+				} else if(!isArray(input["function"].args)) {
+					throw new Error("arguments of function must be an array");
+				} else if(!(function(args) {
+							var i;
+							for(i = 0; i < args.length; i++) {
+								if(typeof args[i] !== "string") {
+									return false;
+								}
+							}
+							return true;
+						})(input["function"].args)) {
+					throw new Error("argument must be a string");
+				}
 				res = outputBegin(input["function"].begin, true);
 				func = funcs.putFunc(input["function"].args, input["function"].rest, res);
 				return ["pushFunc", func, input["function"].name, input["function"].nameNew];
 			} else if(input.hasOwnProperty("if")) {
+				if(input["if"].cond === undef) {
+					throw new Error("condition required");
+				} else if(input["if"].then === undef) {
+					throw new Error("then clause required");
+				}
 				res = walk(input["if"].cond);
 				resIf = walk(input["if"].then, isTail);
 				if(input["if"]["else"] !== undef) {
@@ -220,9 +247,17 @@
 				}
 				return res;
 			} else if(input.hasOwnProperty("cond")) {
+				if(!isArray(input.cond)) {
+					throw new Error("cond clause must be array");
+				}
 				res = [];
 				elseAddrs = [];
 				for(i = 0; i < input.cond.length; i++) {
+					if(input.cond[i]["case"] === undef) {
+						throw new Error("case required");
+					} else if(input.cond[i].then === undef) {
+						throw new Error("then clause required");
+					}
 					res = res.concat(walk(input.cond[i]["case"]));
 					resIf = walk(input.cond[i].then);
 					res.push("gotoElse");
@@ -239,6 +274,9 @@
 				}
 				return res;
 			} else if(input.hasOwnProperty("define")) {
+				if(input.define === null || typeof input.define !== "object") {
+					throw new Error("define clause must be an object");
+				}
 				res = [];
 				for(i in input.define) {
 					if(input.define.hasOwnProperty(i)) {
@@ -251,6 +289,9 @@
 				res.push(null);
 				return res;
 			} else if(input.hasOwnProperty("set")) {
+				if(input["set"] === null || typeof input["set"] !== "object") {
+					throw new Error("set clause must be an object");
+				}
 				res = [];
 				for(i in input["set"]) {
 					if(input["set"].hasOwnProperty(i)) {
@@ -263,6 +304,15 @@
 				res.push(null);
 				return res;
 			} else if(input.hasOwnProperty("let")) {
+				if(input["let"].begin === undef) {
+					throw new Error("body of let required");
+				} else if(!isArray(input["let"].begin)) {
+					throw new Error("body of let must be an array");
+				} else if(input["let"].vars === undef) {
+					throw new Error("variables required");
+				} else if(input["let"].vars === null || typeof input["let"].vars !== "object") {
+					throw new Error("variables must be an object");
+				}
 				res = [];
 				res.push({
 					"function": {
@@ -287,6 +337,15 @@
 				}
 				return walk(res, isTail);
 			} else if(input.hasOwnProperty("letrec")) {
+				if(input.letrec.begin === undef) {
+					throw new Error("body of letrec required");
+				} else if(!isArray(input.letrec.begin)) {
+					throw new Error("body of letrec must be an array");
+				} else if(input.letrec.vars === undef) {
+					throw new Error("variables required");
+				} else if(input.letrec.vars === null || typeof input.letrec.vars !== "object") {
+					throw new Error("variables must be an object");
+				}
 				res = ["saveEnv"];
 				for(i in input.letrec.vars) {
 					if(input.letrec.vars.hasOwnProperty(i)) {
@@ -303,10 +362,24 @@
 			} else if(input.hasOwnProperty("tq")) {
 				return walk(walktq(input.tq));
 			} else if(input.hasOwnProperty("match")) {
+				if(input.match.target === undef) {
+					throw new Error("target of match required");
+				} else if(input.match.patterns === undef) {
+					throw new Error("patterns of match required");
+				} else if(!isArray(input.match.patterns)) {
+					throw new Error("patterns of match must be an array");
+				}
 				res = [];
 				elseAddrs = [];
 				resTarget = walk(input.match.target);
 				for(i = 0; i < input.match.patterns.length; i++) {
+					if(input.match.patterns[i].pattern === undef) {
+						throw new Error("pattern required");
+					} else if(input.match.patterns[i].begin === undef) {
+						throw new Error("instructions required");
+					} else if(!isArray(input.match.patterns[i].begin)) {
+						throw new Error("instructions must be an array");
+					}
 					if(i > 0) {
 						res.push("push");
 						res.push(null);
@@ -357,6 +430,13 @@
 				}
 				return walk(res);
 			} else if(macroEnv !== null && input.hasOwnProperty("defmacro")) {
+				if(input.defmacro.name === undef) {
+					throw new Error("name of macro required");
+				} else if(input.defmacro.patterns === undef) {
+					throw new Error("patterns of macro required");
+				} else if(!isArray(input.defmacro.patterns)) {
+					throw new Error("patterns of macro must be an array");
+				}
 				macroEnv.bindMacro(input.defmacro.name, input.defmacro.patterns);
 				return [];
 			} else {
