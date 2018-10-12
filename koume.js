@@ -7,7 +7,8 @@
  * http://opensource.org/licenses/mit-license.php
  */
 (function(root) {
-	var undef = void 0;
+	var undef = void 0,
+		nan = parseInt('Hello', 2);
 	function isArray(arg) {
 		return Object.prototype.toString.call(arg) === '[object Array]';
 	}
@@ -854,7 +855,37 @@
 		bindBuiltin("trancate", function(x) { return tranc(x); });
 		bindBuiltin("round", function(x) { return Math.round(x); });
 		bindBuiltin("sqrt", function(x) { return Math.sqrt(x); });
-		bindBuiltin("numbertostring", function(x, radix) { return x.toString(radix); });
+		bindBuiltin("numberToString", function(x, radix) { return x.toString(radix); });
+		bindBuiltin("stringToNumber", function(x) {
+			if(typeof x !== "string") {
+				throw new Error("string required: " + x);
+			}
+			return parseFloat(x);
+		});
+		bindBuiltin("stringToInteger", function(x, radix) {
+			function makeRadix(radix) {
+				if(typeof radix !== "number" || radix < 2) {
+					throw new Error("invalid radix: " + radix);
+				} else if(radix <= 10) {
+					return "[0-" + String.fromCharCode(48 + radix - 1) + "]";
+				} else if(radix <= 36) {
+					return "[0-9A-" + String.fromCharCode(65 + radix - 11) + "a-" + String.fromCharCode(97 + radix - 11) + "]";
+				} else {
+					throw new Error("invalid radix: " + radix);
+				}
+			}
+			var regexString;
+			if(typeof x !== "string") {
+				throw new Error("string required: " + x);
+			} else {
+				regexString = "^(\\-|\\+)?(" + makeRadix(radix) + "+|Infinity)$";
+				if(new RegExp(regexString).test(x)) {
+					return parseInt(x, radix);
+				} else {
+					return nan;
+				}
+			}
+		});
 		bindBuiltin("booleanp", function(x) { return typeof x === "boolean"; });
 		bindBuiltin("nullp", function(x) { return x === null; });
 		bindBuiltin("arrayp", function(x) { return isArray(x); });
@@ -907,7 +938,7 @@
 		});
 		bindBuiltin("max", function() { return Math.max.apply(null, arguments); });
 		bindBuiltin("min", function() { return Math.min.apply(null, arguments); });
-		bindBuiltin("stringappend", function() {
+		bindBuiltin("stringAppend", function() {
 			var i,
 				res = "";
 			for(i = 0; i < arguments.length; i++) {
