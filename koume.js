@@ -800,6 +800,36 @@
 			}
 		}
 	}
+	function checkNumber(x) {
+		if(typeof x !== "number") {
+			throw new Error("number required: " + x);
+		}
+	}
+	function checkInteger(x) {
+		if(!isInteger(x)) {
+			throw new Error("integer required: " + x);
+		}
+	}
+	function checkNonnegativeInteger(x) {
+		if(!isInteger(x) || x < 0) {
+			throw new Error("nonnegative integer required: " + x);
+		}
+	}
+	function checkString(x) {
+		if(typeof x !== "string") {
+			throw new Error("string required: " + x);
+		}
+	}
+	function checkArray(x) {
+		if(!isArray(x)) {
+			throw new Error("array required: " + x);
+		}
+	}
+	function checkObject(x) {
+		if(typeof x !== "object" || x === null) {
+			throw new Error("object required: " + x);
+		}
+	}
 	function createGlobalEnv(funcs) {
 		var genv = createEnv();
 		function bindBuiltin(name, func) {
@@ -826,6 +856,7 @@
 			var i,
 				res = 0;
 			for(i = 0; i < arguments.length; i++) {
+				checkNumber(arguments[i]);
 				res += arguments[i];
 			}
 			return res;
@@ -836,10 +867,13 @@
 			if(arguments.length < 1) {
 				throw new Error("too few arguments");
 			} else if(arguments.length === 1) {
+				checkNumber(arguments[0]);
 				return -arguments[0];
 			} else {
+				checkNumber(arguments[0]);
 				res = arguments[0];
 				for(i = 1; i < arguments.length; i++) {
+					checkNumber(arguments[i]);
 					res -= arguments[i];
 				}
 				return res;
@@ -849,6 +883,7 @@
 			var i,
 				res = 1;
 			for(i = 0; i < arguments.length; i++) {
+				checkNumber(arguments[i]);
 				res *= arguments[i];
 			}
 			return res;
@@ -859,55 +894,81 @@
 			if(arguments.length < 1) {
 				throw new Error("too few arguments");
 			} else if(arguments.length === 1) {
+				checkNumber(arguments[0]);
 				return 1 / arguments[0];
 			} else {
+				checkNumber(arguments[0]);
 				res = arguments[0];
 				for(i = 1; i < arguments.length; i++) {
+					checkNumber(arguments[0]);
 					res /= arguments[i];
 				}
 				return res;
 			}
 		});
 		bindBuiltin("quotient", function(a, b) {
+			checkInteger(a);
+			checkInteger(b);
 			return tranc(a / b);
 		});
 		bindBuiltin("remainder", function(a, b) {
+			checkInteger(a);
+			checkInteger(b);
 			return a % b;
 		});
 		bindBuiltin("modulo", function(a, b) {
 			var sgn = sign(a) * sign(b);
+			checkInteger(a);
+			checkInteger(b);
 			return sgn < 0 ? b + a % b : a % b;
 		});
 		bindBuiltin("eqv", function(a, b) { return a === b; });
-		function compareFunc(f) {
+		function compareFunc(f, checkf) {
 			return function() {
-				var i;
-				for(i = 1; i < arguments.length; i++) {
-					if(!f(arguments[i - 1], arguments[i])) {
+				var i,
+					before = null;
+				for(i = 0; i < arguments.length; i++) {
+					checkf(arguments[i]);
+					if(before !== null && !f(before, arguments[i])) {
 						return false;
 					}
+					before = arguments[i];
 				}
 				return true;
 			};
 		}
-		bindBuiltin("=", compareFunc(function(a, b) { return a === b; }));
-		bindBuiltin("!=", compareFunc(function(a, b) { return a !== b; }));
-		bindBuiltin("<", compareFunc(function(a, b) { return a < b; }));
-		bindBuiltin("<=", compareFunc(function(a, b) { return a <= b; }));
-		bindBuiltin(">", compareFunc(function(a, b) { return a > b; }));
-		bindBuiltin(">=", compareFunc(function(a, b) { return a >= b; }));
+		function checkAndExecute(arity, execf, checkf) {
+			return function(x) {
+				var i,
+					args = Array.prototype.slice.call(arguments);
+				if(arity >= 0 && args.length !== arity) {
+					throw new Error("arity of arguments must be " + arity);
+				}
+				for(i = 0; i < args.length; i++) {
+					checkf(x);
+				}
+				return execf.apply(null, args);
+			};
+		}
+		bindBuiltin("=", compareFunc(function(a, b) { return a === b; }, checkNumber));
+		bindBuiltin("!=", compareFunc(function(a, b) { return a !== b; }, checkNumber));
+		bindBuiltin("<", compareFunc(function(a, b) { return a < b; }, checkNumber));
+		bindBuiltin("<=", compareFunc(function(a, b) { return a <= b; }, checkNumber));
+		bindBuiltin(">", compareFunc(function(a, b) { return a > b; }, checkNumber));
+		bindBuiltin(">=", compareFunc(function(a, b) { return a >= b; }, checkNumber));
 		bindBuiltin(["not", "!"], function(a) { return !a; });
-		bindBuiltin("sin", function(x) { return Math.sin(x); });
-		bindBuiltin("cos", function(x) { return Math.cos(x); });
-		bindBuiltin("tan", function(x) { return Math.tan(x); });
-		bindBuiltin("asin", function(x) { return Math.asin(x); });
-		bindBuiltin("acos", function(x) { return Math.acos(x); });
-		bindBuiltin("atan", function(x) { return Math.atan(x); });
-		bindBuiltin("exp", function(x) { return Math.exp(x); });
-		bindBuiltin("expt", function(x, y) { return Math.pow(x, y); });
-		bindBuiltin("log", function(x) { return Math.log(x); });
+		bindBuiltin("sin", checkAndExecute(1, Math.sin, checkNumber));
+		bindBuiltin("cos", checkAndExecute(1, Math.cos, checkNumber));
+		bindBuiltin("tan", checkAndExecute(1, Math.tan, checkNumber));
+		bindBuiltin("asin", checkAndExecute(1, Math.asin, checkNumber));
+		bindBuiltin("acos", checkAndExecute(1, Math.acos, checkNumber));
+		bindBuiltin("atan", checkAndExecute(1, Math.atan, checkNumber));
+		bindBuiltin("exp", checkAndExecute(1, Math.exp, checkNumber));
+		bindBuiltin("expt", checkAndExecute(2, Math.pow, checkNumber));
+		bindBuiltin("log", checkAndExecute(1, Math.log, checkNumber));
 		bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
 		bindBuiltin("first", function(list) {
+			checkArray(list);
 			if(list.length > 0) {
 				return list[0];
 			} else {
@@ -915,31 +976,31 @@
 			}
 		});
 		bindBuiltin("rest", function(list) {
+			checkArray(list);
 			if(list.length > 0) {
 				return list.slice(1);
 			} else {
 				throw new Error("empty array");
 			}
 		});
-		bindBuiltin("ref", function(name, val) { return val[name]; });
 		bindBuiltin("setprop", function(name, obj, val) {
-			if(typeof obj !== "object" || obj === null) {
-				throw new Error("object or array required: " + obj);
-			}
+			checkString(name);
+			checkObject(obj);
 			return obj[name] = val;
 		});
 		bindBuiltin("numberp", function(x) { return typeof x === "number"; });
 		bindBuiltin("integerp", function(x) { return isInteger(x); });
-		bindBuiltin("floor", function(x) { return Math.floor(x); });
-		bindBuiltin("ceiling", function(x) { return Math.ceil(x); });
-		bindBuiltin("trancate", function(x) { return tranc(x); });
-		bindBuiltin("round", function(x) { return Math.round(x); });
-		bindBuiltin("sqrt", function(x) { return Math.sqrt(x); });
-		bindBuiltin("numberToString", function(x, radix) { return x.toString(radix); });
+		bindBuiltin("floor", checkAndExecute(1, Math.floor, checkNumber));
+		bindBuiltin("ceiling", checkAndExecute(1, Math.ceil, checkNumber));
+		bindBuiltin("trancate", checkAndExecute(1, tranc, checkNumber));
+		bindBuiltin("round", checkAndExecute(1, Math.round, checkNumber));
+		bindBuiltin("sqrt", checkAndExecute(1, Math.sqrt, checkNumber));
+		bindBuiltin("numberToString", function(x, radix) {
+			checkNumber(x);
+			return x.toString(radix);
+		});
 		bindBuiltin("stringToNumber", function(x) {
-			if(typeof x !== "string") {
-				throw new Error("string required: " + x);
-			}
+			checkString(x);
 			return parseFloat(x);
 		});
 		bindBuiltin("stringToInteger", function(x, radix) {
@@ -955,22 +1016,21 @@
 				}
 			}
 			var regexString;
-			if(typeof x !== "string") {
-				throw new Error("string required: " + x);
+			checkString(x);
+			regexString = "^(\\-|\\+)?(" + makeRadix(radix) + "+|Infinity)$";
+			if(new RegExp(regexString).test(x)) {
+				return parseInt(x, radix);
 			} else {
-				regexString = "^(\\-|\\+)?(" + makeRadix(radix) + "+|Infinity)$";
-				if(new RegExp(regexString).test(x)) {
-					return parseInt(x, radix);
-				} else {
-					return nan;
-				}
+				return nan;
 			}
 		});
 		bindBuiltin("booleanp", function(x) { return typeof x === "boolean"; });
 		bindBuiltin("nullp", function(x) { return x === null; });
 		bindBuiltin("arrayp", function(x) { return isArray(x); });
+		bindBuiltin("objectp", function(x) { return x !== null && typeof x === "object"; });
 		bindBuiltin("keys", function(obj) {
 			var res = [];
+			checkObject(obj);
 			for(i in obj) {
 				if(obj.hasOwnProperty(i)) {
 					res.push(i);
@@ -1014,50 +1074,64 @@
 			return isEqual(obj1, obj2);
 		});
 		bindBuiltin("length", function(obj) {
+			if(typeof obj !== "string" && !isArray(obj)) {
+				throw new Error("object must have length");
+			}
 			return obj.length;
 		});
-		bindBuiltin("max", function() { return Math.max.apply(null, arguments); });
-		bindBuiltin("min", function() { return Math.min.apply(null, arguments); });
+		bindBuiltin("max", checkAndExecute(-1, Math.max, checkNumber));
+		bindBuiltin("min", checkAndExecute(-1, Math.min, checkNumber));
 		bindBuiltin("stringAppend", function() {
 			var i,
 				res = "";
 			for(i = 0; i < arguments.length; i++) {
+				checkString(arguments[i]);
 				res += arguments[i];
 			}
 			return res;
 		});
-		bindBuiltin("string=", compareFunc(function(a, b) { return a === b; }));
+		bindBuiltin("string=", compareFunc(function(a, b) { return a === b; }, checkString));
 		bindBuiltin("stringci=", compareFunc(function(a, b) {
 			return a.toUpperCase() === b.toUpperCase();
-		}));
-		bindBuiltin("string<", compareFunc(function(a, b) { return a < b; }));
-		bindBuiltin("string<=", compareFunc(function(a, b) { return a <= b; }));
-		bindBuiltin("string>", compareFunc(function(a, b) { return a > b; }));
-		bindBuiltin("string>=", compareFunc(function(a, b) { return a >= b; }));
+		}, checkString));
+		bindBuiltin("string<", compareFunc(function(a, b) { return a < b; }, checkString));
+		bindBuiltin("string<=", compareFunc(function(a, b) { return a <= b; }, checkString));
+		bindBuiltin("string>", compareFunc(function(a, b) { return a > b; }, checkString));
+		bindBuiltin("string>=", compareFunc(function(a, b) { return a >= b; }, checkString));
 		bindBuiltin("stringci<", compareFunc(function(a, b) {
 			return a.toUpperCase() < b.toUpperCase();
-		}));
+		}, checkString));
 		bindBuiltin("stringci<=", compareFunc(function(a, b) {
 			return a.toUpperCase() <= b.toUpperCase();
-		}));
+		}, checkString));
 		bindBuiltin("stringci>", compareFunc(function(a, b) {
 			return a.toUpperCase() > b.toUpperCase();
-		}));
+		}, checkString));
 		bindBuiltin("stringci>=", compareFunc(function(a, b) {
 			return a.toUpperCase() >= b.toUpperCase();
-		}));
+		}, checkString));
 		bindBuiltin("substring", function(str, start, end) {
+			checkString(str);
+			checkNonnegativeInteger(start);
+			checkNonnegativeInteger(end);
+			if(start > end) {
+				throw new Error("start position must not be greater than end position");
+			}
 			return str.substring(start, end);
 		});
 		bindBuiltin("concat", function() {
 			var i = 0,
 				res = [];
 			for(i = 0; i < arguments.length; i++) {
+				checkArray(arguments[i]);
 				res = res.concat(arguments[i]);
 			}
 			return res;
 		});
-		bindBuiltin("error", function(msg) { throw new Error(msg); });
+		bindBuiltin("error", function(msg) {
+			checkString(msg);
+			throw new Error(msg);
+		});
 		bindBuiltin("p", function(print) { console.log(print); return null; });
 		bindBuiltinValues("functionp", function(obj) {
 			return {
@@ -1074,22 +1148,58 @@
 		genv.bind("callcc", {
 			type: "func",
 			val: funcs.createInstance(funcs.putFunc(["x"], null, [
+				"var",
+				"x",
+				"var",
+				"functionp",
+				"call",
+				"gotoElse",
+				5,
 				"stopArgs",
 				"pushCc",
 				"var",
 				"x",
-				"callTail"
+				"callTail",
+				"push",
+				"function required",
+				"var",
+				"error",
+				"call"
 			]))
 		});
 		genv.bind("apply", {
 			type: "func",
 			val: funcs.createInstance(funcs.putFunc(["f", "args"], null, [
 				"var",
+				"x",
+				"var",
+				"functionp",
+				"call",
+				"gotoElse",
+				13,
+				"var",
+				"args",
+				"var",
+				"arrayp",
+				"call",
+				"gotoElse",
+				11,
+				"var",
 				"args",
 				"applyArgs",
 				"var",
 				"f",
-				"callTail"
+				"callTail",
+				"push",
+				"function required",
+				"var",
+				"error",
+				"call",
+				"push",
+				"array required",
+				"var",
+				"error",
+				"call"
 			]))
 		});
 		execVM(traverse({
@@ -1098,6 +1208,12 @@
 				"args": ["f"],
 				"rest": "args",
 				"begin": [
+					{
+						"if": {
+							"cond": ["not", ["functionp", "f"]],
+							"then": ["error", { "q": "function required" }]
+						}
+					},
 					{
 						"if": {
 							"cond": ["eqv", 0, ["args", { "q": "length" }]],
@@ -1117,6 +1233,12 @@
 												"i": 0
 											},
 											"begin": [
+												{
+													"if": {
+														"cond": ["not", ["arrayp", ["args", "i"]]],
+														"then": ["error", { "q": "array reqired" }]
+													}
+												},
 												{
 													"if": {
 														"cond": ["eqv", "i", ["args", { "q": "length" }]],
@@ -1207,6 +1329,18 @@
 								"cons": {}
 							},
 							"keylist": ["keys", "obj"]
+						}
+					},
+					{
+						"if": {
+							"cond": ["not", ["functionp", "f"]],
+							"then": ["error", { "q": "function required" }]
+						}
+					},
+					{
+						"if": {
+							"cond": ["not", ["objectp", "obj"]],
+							"then": ["error", { "q": "object required" }]
 						}
 					},
 					{
