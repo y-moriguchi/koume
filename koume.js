@@ -945,7 +945,7 @@
 					throw new Error("arity of arguments must be " + arity);
 				}
 				for(i = 0; i < args.length; i++) {
-					checkf(x);
+					checkf(args[i]);
 				}
 				return execf.apply(null, args);
 			};
@@ -956,7 +956,7 @@
 		bindBuiltin("<=", compareFunc(function(a, b) { return a <= b; }, checkNumber));
 		bindBuiltin(">", compareFunc(function(a, b) { return a > b; }, checkNumber));
 		bindBuiltin(">=", compareFunc(function(a, b) { return a >= b; }, checkNumber));
-		bindBuiltin(["not", "!"], function(a) { return !a; });
+		bindBuiltin(["not", "!"], function(a) { return a === false ? true : false; });
 		bindBuiltin("sin", checkAndExecute(1, Math.sin, checkNumber));
 		bindBuiltin("cos", checkAndExecute(1, Math.cos, checkNumber));
 		bindBuiltin("tan", checkAndExecute(1, Math.tan, checkNumber));
@@ -989,7 +989,18 @@
 			return obj[name] = val;
 		});
 		bindBuiltin("numberp", function(x) { return typeof x === "number"; });
-		bindBuiltin("integerp", function(x) { return isInteger(x); });
+		bindBuiltinValues("numberp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "literal" && typeof obj.val === "number"
+			};
+		});
+		bindBuiltinValues("integerp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "literal" && isInteger(obj.val)
+			};
+		});
 		bindBuiltin("floor", checkAndExecute(1, Math.floor, checkNumber));
 		bindBuiltin("ceiling", checkAndExecute(1, Math.ceil, checkNumber));
 		bindBuiltin("trancate", checkAndExecute(1, tranc, checkNumber));
@@ -997,7 +1008,15 @@
 		bindBuiltin("sqrt", checkAndExecute(1, Math.sqrt, checkNumber));
 		bindBuiltin("numberToString", function(x, radix) {
 			checkNumber(x);
-			return x.toString(radix);
+			if(radix === undef) {
+				return x.toString(10);
+			} else {
+				checkInteger(radix);
+				if(radix < 2 || radix > 36) {
+					throw new Error("radix must be between 2 and 36: " + radix);
+				}
+				return x.toString(radix);
+			}
 		});
 		bindBuiltin("stringToNumber", function(x) {
 			checkString(x);
@@ -1005,14 +1024,16 @@
 		});
 		bindBuiltin("stringToInteger", function(x, radix) {
 			function makeRadix(radix) {
-				if(typeof radix !== "number" || radix < 2) {
-					throw new Error("invalid radix: " + radix);
+				if(radix === undef) {
+					return makeRadix(10);
+				} else if(typeof radix !== "number" || radix < 2) {
+					throw new Error("radix must be between 2 and 36: " + radix);
 				} else if(radix <= 10) {
 					return "[0-" + String.fromCharCode(48 + radix - 1) + "]";
 				} else if(radix <= 36) {
 					return "[0-9A-" + String.fromCharCode(65 + radix - 11) + "a-" + String.fromCharCode(97 + radix - 11) + "]";
 				} else {
-					throw new Error("invalid radix: " + radix);
+					throw new Error("radix must be between 2 and 36: " + radix);
 				}
 			}
 			var regexString;
@@ -1024,10 +1045,30 @@
 				return nan;
 			}
 		});
-		bindBuiltin("booleanp", function(x) { return typeof x === "boolean"; });
-		bindBuiltin("nullp", function(x) { return x === null; });
-		bindBuiltin("arrayp", function(x) { return isArray(x); });
-		bindBuiltin("objectp", function(x) { return x !== null && typeof x === "object"; });
+		bindBuiltinValues("booleanp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "literal" && typeof obj.val === "boolean"
+			};
+		});
+		bindBuiltinValues("nullp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "literal" && obj.val === null
+			};
+		});
+		bindBuiltinValues("arrayp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "literal" && isArray(obj.val)
+			};
+		});
+		bindBuiltinValues("objectp", function(obj) {
+			return {
+				"type": "literal",
+				"val": obj.type === "literal" && obj.val !== null && typeof obj.val === "object"
+			};
+		});
 		bindBuiltin("keys", function(obj) {
 			var res = [];
 			checkObject(obj);
@@ -1094,6 +1135,10 @@
 		bindBuiltin("stringci=", compareFunc(function(a, b) {
 			return a.toUpperCase() === b.toUpperCase();
 		}, checkString));
+		bindBuiltin("string!=", compareFunc(function(a, b) { return a !== b; }, checkString));
+		bindBuiltin("stringci!=", compareFunc(function(a, b) {
+			return a.toUpperCase() !== b.toUpperCase();
+		}, checkString));
 		bindBuiltin("string<", compareFunc(function(a, b) { return a < b; }, checkString));
 		bindBuiltin("string<=", compareFunc(function(a, b) { return a <= b; }, checkString));
 		bindBuiltin("string>", compareFunc(function(a, b) { return a > b; }, checkString));
@@ -1148,59 +1193,69 @@
 		genv.bind("callcc", {
 			type: "func",
 			val: funcs.createInstance(funcs.putFunc(["x"], null, [
+				"stopArgs",
 				"var",
 				"x",
 				"var",
 				"functionp",
 				"call",
 				"gotoElse",
-				5,
+				7,
 				"stopArgs",
 				"pushCc",
 				"var",
 				"x",
 				"callTail",
+				"goto",
+				6,
+				"stopArgs",
 				"push",
 				"function required",
 				"var",
 				"error",
 				"call"
-			]))
+			]), genv)
 		});
 		genv.bind("apply", {
 			type: "func",
 			val: funcs.createInstance(funcs.putFunc(["f", "args"], null, [
+				"stopArgs",
 				"var",
-				"x",
+				"f",
 				"var",
 				"functionp",
 				"call",
 				"gotoElse",
-				13,
+				16,
+				"stopArgs",
 				"var",
 				"args",
 				"var",
 				"arrayp",
 				"call",
 				"gotoElse",
-				11,
+				14,
 				"var",
 				"args",
 				"applyArgs",
 				"var",
 				"f",
 				"callTail",
+				"goto",
+				12,
+				"stopArgs",
 				"push",
 				"function required",
 				"var",
 				"error",
 				"call",
+				"stopArgs",
 				"push",
 				"array required",
 				"var",
 				"error",
 				"call"
-			]))
+			]), genv)
 		});
 		execVM(traverse({
 			"function": {
@@ -1233,12 +1288,6 @@
 												"i": 0
 											},
 											"begin": [
-												{
-													"if": {
-														"cond": ["not", ["arrayp", ["args", "i"]]],
-														"then": ["error", { "q": "array reqired" }]
-													}
-												},
 												{
 													"if": {
 														"cond": ["eqv", "i", ["args", { "q": "length" }]],
@@ -1301,7 +1350,7 @@
 																"then": ["list"],
 																"else": [
 																	"concat",
-																	["apply", "f", "applied"],
+																	["list", ["apply", "f", "applied"]],
 																	["loop1", ["add", "i", 1]]
 																]
 															}
