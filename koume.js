@@ -180,7 +180,7 @@
 				}
 				return res;
 			} else if(input.hasOwnProperty("tuple")) {
-				if(input.cons === null || typeof input.cons !== "object") {
+				if(input.tuple === null || typeof input.tuple !== "object") {
 					throw new Error("tuple clause must be an object");
 				}
 				res = ["createTuple"];
@@ -202,6 +202,8 @@
 					throw new Error("body of function required");
 				} else if(!isArray(input["function"].begin)) {
 					throw new Error("body of function must be an array");
+				} else if(input["function"].begin.length === 0) {
+					throw new Error("body of function must not be empty");
 				} else if(input["function"].args === undef) {
 					throw new Error("arguments of function required");
 				} else if(!isArray(input["function"].args)) {
@@ -238,7 +240,7 @@
 					res = res.concat(resElse);
 				} else {
 					res.push("gotoElse");
-					res.push(resIf.length);
+					res.push(resIf.length + 2);
 					res = res.concat(resIf);
 					res.push("goto");
 					res.push(2);
@@ -249,6 +251,8 @@
 			} else if(input.hasOwnProperty("cond")) {
 				if(!isArray(input.cond)) {
 					throw new Error("cond clause must be array");
+				} else if(input.cond.length === 0) {
+					throw new Error("cond clause must have more then one clause");
 				}
 				res = [];
 				elseAddrs = [];
@@ -308,6 +312,8 @@
 					throw new Error("body of let required");
 				} else if(!isArray(input["let"].begin)) {
 					throw new Error("body of let must be an array");
+				} else if(input["let"].begin.length === 0) {
+					throw new Error("body of let must not be empty");
 				} else if(input["let"].vars === undef) {
 					throw new Error("variables required");
 				} else if(input["let"].vars === null || typeof input["let"].vars !== "object") {
@@ -341,6 +347,8 @@
 					throw new Error("body of letrec required");
 				} else if(!isArray(input.letrec.begin)) {
 					throw new Error("body of letrec must be an array");
+				} else if(input.letrec.begin.length === 0) {
+					throw new Error("body of letrec must not be empty");
 				} else if(input.letrec.vars === undef) {
 					throw new Error("variables required");
 				} else if(input.letrec.vars === null || typeof input.letrec.vars !== "object") {
@@ -368,6 +376,8 @@
 					throw new Error("patterns of match required");
 				} else if(!isArray(input.match.patterns)) {
 					throw new Error("patterns of match must be an array");
+				} else if(input.match.patterns.length === 0) {
+					throw new Error("patterns of match must not be empty");
 				}
 				res = [];
 				elseAddrs = [];
@@ -410,7 +420,7 @@
 				if(typeof input.sq !== "string") {
 					throw new Error("string literal required: " + input.sq);
 				}
-				res = ["stringappend"];
+				res = ["stringAppend"];
 				lIndex = 0;
 				varRe = /\$(?:\{([^\}]+)\}|([^ \t\n]+))/g;
 				while(!!(matched = varRe.exec(input.sq))) {
@@ -422,7 +432,7 @@
 					for(i = 1; i < props.length; i++) {
 						resProp = [resProp, { q: props[i] }];
 					}
-					res.push(resProp);
+					res.push(["toString", resProp]);
 					lIndex = varRe.lastIndex;
 				}
 				if(lIndex < input.sq.length) {
@@ -567,7 +577,11 @@
 			} else if(args[0].val === "length") {
 				stack.push({ type: "literal", val: callee.val[args[0].val] });
 			} else if(argsType === "args" && typeof args[0].val === "number") {
-				stack.push(callee.val[args[0].val]);
+				if(callee.val[args[0].val] === undef) {
+					stack.push({ type: "literal", val: undef });
+				} else {
+					stack.push(callee.val[args[0].val]);
+				}
 			} else if(argsType === "tuple" && callee.val.hasOwnProperty(args[0].val)) {
 				stack.push(callee.val[args[0].val]);
 			} else if(argsType === "literal" &&
@@ -1178,6 +1192,12 @@
 			throw new Error(msg);
 		});
 		bindBuiltin("p", function(print) { console.log(print); return null; });
+		bindBuiltinValues("toString", function(x) {
+			return {
+				"type": "literal",
+				"val": valueToString(x)
+			};
+		});
 		bindBuiltinValues("functionp", function(obj) {
 			return {
 				"type": "literal",
@@ -1288,6 +1308,18 @@
 												"i": 0
 											},
 											"begin": [
+												{
+													"if": {
+														"cond": {
+															"if": {
+																"cond": ["<", "i", ["args", { "q": "length" }]],
+																"then": ["not", ["arrayp", ["args", "i"]]],
+																"else": false
+															}
+														},
+														"then": ["error", { "q": "function required" }]
+													}
+												},
 												{
 													"if": {
 														"cond": ["eqv", "i", ["args", { "q": "length" }]],
@@ -1430,6 +1462,13 @@
 			return "#<" + val.type + ">";
 		}
 	}
+	function valueToString(val) {
+		if(val.type === "literal") {
+			return JSON.stringify(val.val);
+		} else {
+			return "#<" + val.type + ">";
+		}
+	}
 	function evalLang(input) {
 		var i,
 			res,
@@ -1449,6 +1488,12 @@
 						{
 							"pattern": "list",
 							"begin": [
+								{
+									"if": {
+										"cond": ["not", ["arrayp", "list"]],
+										"then": ["error", { "q": "arrayp required" }]
+									}
+								},
 								{
 									"if": {
 										"cond": [">", ["list", { "q": "length" }], 0],
@@ -1476,6 +1521,12 @@
 						{
 							"pattern": "list",
 							"begin": [
+								{
+									"if": {
+										"cond": ["not", ["arrayp", "list"]],
+										"then": ["error", { "q": "arrayp required" }]
+									}
+								},
 								{
 									"if": {
 										"cond": [">", ["list", { "q": "length" }], 0],

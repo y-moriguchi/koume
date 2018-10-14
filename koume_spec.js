@@ -53,6 +53,72 @@ describe("Koume", function () {
 				},
 				["twice", 2]
 			], 4);
+			expect(function() { equal([
+				{
+					"function": null
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"args": ["x"]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"args": ["x"],
+						"begin": 961
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"args": ["x"],
+						"begin": []
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"begin": [
+							["add", 1, 2]
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"begin": [
+							["add", 1, 2]
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"args": 1,
+						"begin": [
+							["add", 1, 2]
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"function": {
+						"args": [1],
+						"begin": [
+							["add", 1, 2]
+						]
+					}
+				}
+			]) }).toThrow();
 		});
 		it("quote", function () {
 			equal([{ "q": { "a": 765, "b": 346 }}], { "a": 765, "b": 346 });
@@ -66,6 +132,20 @@ describe("Koume", function () {
 					}
 				}
 			], { "a": 1111, "b": 1 });
+			expect(function() { equal([{ "cons": null }]) }).toThrow();
+			expect(function() { equal([{ "cons": 961 }]) }).toThrow();
+		});
+		it("tuple", function () {
+			equal([
+				[{
+					"tuple": {
+						"a": ["add", 765, 346],
+						"b": ["sub", 2, 1]
+					}
+				}, { "q": "a" }]
+			], 1111);
+			expect(function() { equal([{ "tuple": null }]) }).toThrow();
+			expect(function() { equal([{ "tuple": 961 }]) }).toThrow();
 		});
 		it("begin", function () {
 			equal([
@@ -76,6 +156,9 @@ describe("Koume", function () {
 					]
 				}
 			], 1111);
+			expect(function() { equal([{ "begin": null }]) }).toThrow();
+			expect(function() { equal([{ "begin": 961 }]) }).toThrow();
+			expect(function() { equal([{ "begin": { "a": 961 } }]) }).toThrow();
 		});
 		it("if", function () {
 			equal([
@@ -96,6 +179,22 @@ describe("Koume", function () {
 					}
 				}
 			], 765);
+			equal([
+				{
+					"if": {
+						"cond": 1,
+						"then": 765
+					}
+				}
+			], 765);
+			equal([
+				{
+					"if": {
+						"cond": false,
+						"then": 961
+					}
+				}
+			], null);
 		});
 		it("cond", function () {
 			var cond = {
@@ -117,6 +216,10 @@ describe("Koume", function () {
 			equal([{ "define": { "x": 2 } }, cond], 4);
 			equal([{ "define": { "x": 3 } }, cond], 6);
 			equal([{ "define": { "x": 4 } }, cond], 0);
+			expect(function() { equal([{ "cond": null }]) }).toThrow();
+			expect(function() { equal([{ "cond": 961 }]) }).toThrow();
+			expect(function() { equal([{ "cond": { "a": 961 } }]) }).toThrow();
+			expect(function() { equal([{ "cond": [] }]) }).toThrow();
 		});
 		it("set", function () {
 			equal([
@@ -124,6 +227,9 @@ describe("Koume", function () {
 				{ "set": { "x": 765 } },
 				"x"
 			], 765);
+			expect(function() { equal([{ "set": null }]) }).toThrow();
+			expect(function() { equal([{ "set": 961 }]) }).toThrow();
+			expect(function() { equal([{ "set": { "z": 961 } }]) }).toThrow();
 		});
 		it("let", function () {
 			equal([
@@ -144,6 +250,52 @@ describe("Koume", function () {
 					}
 				}
 			], 765);
+			expect(function() { equal([{
+				"let": {
+					"vars": {
+						"x": 346
+					}
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"let": {
+					"vars": {
+						"x": 346
+					},
+					"begin": 1
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"let": {
+					"vars": {
+						"x": 346
+					},
+					"begin": { "a": 1 }
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"let": {
+					"vars": {
+						"x": 346
+					},
+					"begin": []
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"let": {
+					"begin": [
+						["sub", "y", "x"]
+					]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"let": {
+					"vars": 1,
+					"begin": [
+						["sub", "y", "x"]
+					]
+				}
+			}]) }).toThrow();
 		});
 		it("named let", function () {
 			equal([
@@ -193,6 +345,52 @@ describe("Koume", function () {
 					}
 				}
 			], 55);
+			expect(function() { equal([{
+				"letrec": {
+					"vars": {
+						"x": 346
+					}
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"letrec": {
+					"vars": {
+						"x": 346
+					},
+					"begin": 1
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"letrec": {
+					"vars": {
+						"x": 346
+					},
+					"begin": { "a": 1 }
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"letrec": {
+					"vars": {
+						"x": 346
+					},
+					"begin": []
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"letrec": {
+					"begin": [
+						["sub", "y", "x"]
+					]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"letrec": {
+					"vars": 1,
+					"begin": [
+						["sub", "y", "x"]
+					]
+				}
+			}]) }).toThrow();
 		});
 		it("quasiqoute", function () {
 			equal([
@@ -216,6 +414,73 @@ describe("Koume", function () {
 				},
 				"c": 3
 			});
+		});
+		it("tq", function () {
+			equal([[
+				{
+					"tq": {
+						"a": 1,
+						"b": {
+							"aaa": 1,
+							"uq": 2
+						},
+						"c": {
+							"uq": ["add", 1, 2]
+						}
+					}
+				}
+			, { "q": "c" }]], 3);
+		});
+		it("sq", function () {
+			equal([
+				{ "define": { "x": 765 } },
+				{ "sq": "$x production" }
+			], "765 production");
+			equal([
+				{ "define": { "x": 765 } },
+				{ "sq": "${x}pro" }
+			], "765pro");
+			equal([
+				{ "define": { "x": 765 } },
+				{ "sq": "Welcome to $x production" }
+			], "Welcome to 765 production");
+			equal([
+				{
+					"define": {
+						"x": {
+							"q": {
+								"aaaa": {
+									"bbbb": 765,
+									"cccc": 346
+								},
+								"dddd": 283
+							}
+						}
+					}
+				},
+				{ "sq": "Welcome to ${x.aaaa.bbbb}, $x.aaaa.cccc and $x.dddd production" }
+			], "Welcome to 765, 346 and 283 production");
+			expect(function() { equal([{ "set": null }]) }).toThrow();
+			expect(function() { equal([{ "set": 961 }]) }).toThrow();
+		});
+		it("and", function () {
+			equal([{ "and": [1, 2, 3] }], 3);
+			equal([{ "and": [false, 2, 3] }], false);
+			equal([{ "and": [1] }], 1);
+			equal([{ "and": [] }], true);
+			expect(function() { equal([{ "and": null }]) }).toThrow();
+			expect(function() { equal([{ "and": 961 }]) }).toThrow();
+			expect(function() { equal([{ "and": { "z": 961 } }]) }).toThrow();
+		});
+		it("or", function () {
+			equal([{ "or": [1, 2, 3] }], 1);
+			equal([{ "or": [false, 2, 3] }], 2);
+			equal([{ "or": [false, false, false] }], false);
+			equal([{ "or": [1] }], 1);
+			equal([{ "or": [] }], false);
+			expect(function() { equal([{ "or": null }]) }).toThrow();
+			expect(function() { equal([{ "or": 961 }]) }).toThrow();
+			expect(function() { equal([{ "or": { "z": 961 } }]) }).toThrow();
 		});
 	});
 
