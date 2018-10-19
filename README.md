@@ -32,8 +32,8 @@ Koume has features as follows.
 ### Quotes
 ```json
 [ { "q": "string" } ]
-[ { "q": [ "array" } ]
-[ { "q": { "obj1": 1 } ]
+[ { "q": [ "array" ] } ]
+[ { "q": { "obj1": 1 } } ]
 ```
 
 ### Quasiquotes
