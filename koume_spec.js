@@ -482,6 +482,489 @@ describe("Koume", function () {
 			expect(function() { equal([{ "or": 961 }]) }).toThrow();
 			expect(function() { equal([{ "or": { "z": 961 } }]) }).toThrow();
 		});
+		it("match", function () {
+			function createTarget1(target) {
+				return [{
+					"match": {
+						"target": { "q": target },
+						"patterns": [
+							{
+								"pattern": {
+									"aaaa": "a",
+									"bbbb": {
+										"cccc": "c",
+									},
+									"iiii": ["d", "e"]
+								},
+								"begin": [["list", "a", "c", "d", "e"]]
+							},
+							{
+								"pattern": {
+									"jjjj": "a"
+								},
+								"begin": ["a"]
+							}
+						]
+					}
+				}];
+			}
+			equal(createTarget1({
+				"aaaa": { "a": 1 },
+				"bbbb": {
+					"cccc": [346]
+				},
+				"iiii": [765, [283]]
+			}), [{ "a": 1 }, [346], 765, [283]]); 
+			equal(createTarget1({
+				"aaaa": { "a": 1 },
+				"bbbb": {
+					"cccc": [346]
+				},
+				"iiii": [765, [283]],
+				"jjjj": 1
+			}), [{ "a": 1 }, [346], 765, [283]]); 
+			equal(createTarget1({
+				"aaaa": { "a": 1 },
+				"bbbb": {
+					"cccc": [346],
+					"dddd": 315
+				},
+				"iiii": [765, [283]]
+			}), [{ "a": 1 }, [346], 765, [283]]); 
+			equal(createTarget1({
+				"bbbb": {
+					"cccc": [346]
+				},
+				"iiii": [765, [283]]
+			}), null); 
+			equal(createTarget1({
+				"aaaa": { "a": 1 },
+				"bbbb": {
+				},
+				"iiii": [765, [283]]
+			}), null); 
+			equal(createTarget1({
+				"aaaa": { "a": 1 },
+				"bbbb": {
+					"cccc": [346]
+				}
+			}), null); 
+			equal(createTarget1({
+				"aaaa": { "a": 1 },
+				"bbbb": {
+					"cccc": [346]
+				},
+				"iiii": [765]
+			}), null); 
+			equal(createTarget1({
+				"jjjj": { "a": 1 }
+			}), { "a": 1 }); 
+			expect(function() { equal([{
+				"match": {
+					"patterns": [
+						{
+							"pattern": "a",
+							"match": ["a"]
+						}
+					]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": 961
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": []
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": [961]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": [
+						{
+							"match": ["a"]
+						}
+					]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": [
+						{
+							"pattern": "a"
+						}
+					]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": [
+						{
+							"pattern": "a",
+							"match": "a"
+						}
+					]
+				}
+			}]) }).toThrow();
+			expect(function() { equal([{
+				"match": {
+					"target": 1,
+					"patterns": [
+						{
+							"pattern": "a",
+							"match": []
+						}
+					]
+				}
+			}]) }).toThrow();
+		});
+		it("defmacro", function () {
+			equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": [
+									{
+										"qq": ["list", { "uq": "a" }]
+									}
+								]
+							},
+							{
+								"pattern": {
+									"cccc": "a"
+								},
+								"begin": [
+									"a"
+								]
+							}
+						]
+					}
+				},
+				{
+					"aaaa": {
+						"bbbb": 1
+					}
+				}
+			], [1]);
+			equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": [
+									{
+										"qq": ["list", { "uq": "a" }]
+									}
+								]
+							},
+							{
+								"pattern": {
+									"cccc": "a"
+								},
+								"begin": [
+									"a"
+								]
+							}
+						]
+					}
+				},
+				{
+					"aaaa": {
+						"cccc": 1
+					}
+				}
+			], 1);
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": [
+									{
+										"qq": ["list", { "uq": "a" }]
+									}
+								]
+							},
+							{
+								"pattern": {
+									"cccc": "a"
+								},
+								"begin": [
+									"a"
+								]
+							}
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa"
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": 961
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": []
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": [
+									{
+										"qq": ["list", { "uq": "a" }]
+									}
+								]
+							},
+							{
+								"pattern": {
+									"cccc": "a"
+								},
+								"begin": [
+									"a"
+								]
+							}
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [961]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"begin": [
+									{
+										"qq": ["list", { "uq": "a" }]
+									}
+								]
+							}
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								}
+							}
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": 961
+							}
+						]
+					}
+				}
+			]) }).toThrow();
+			expect(function() { equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": []
+							}
+						]
+					}
+				}
+			]) }).toThrow();
+		});
+		it("message", function () {
+			equal([
+				[
+					{
+						"message": {
+							"extends": false,
+							"messages": {
+								"aaaa": 765,
+								"bbbb": 346
+							}
+						}
+					},
+					{ "q": "aaaa" }
+				]
+			], 765);
+			equal([
+				[
+					{
+						"message": {
+							"extends": false,
+							"messages": {
+								"aaaa": 765,
+								"bbbb": 346
+							}
+						}
+					},
+					{ "q": "bbbb" }
+				]
+			], 346);
+			equal([
+				[
+					{
+						"message": {
+							"extends": {
+								"message": {
+									"extends": false,
+									"messages": {
+										"cccc": 283
+									}
+								}
+							},
+							"messages": {
+								"aaaa": 765,
+								"bbbb": 346
+							}
+						}
+					},
+					{ "q": "cccc" }
+				]
+			], 283);
+			expect(function() { equal([
+				[
+					{
+						"message": {
+							"extends": false,
+							"messages": {
+								"aaaa": 765,
+								"bbbb": 346
+							}
+						}
+					},
+					{ "q": "cccc" }
+				]
+			]) }).toThrow();
+			expect(function() { equal([
+				[
+					{
+						"message": {
+							"extends": {
+								"message": {
+									"extends": false,
+									"messages": {
+										"cccc": 283
+									}
+								}
+							},
+							"messages": {
+								"aaaa": 765,
+								"bbbb": 346
+							}
+						}
+					},
+					{ "q": "dddd" }
+				]
+			]) }).toThrow();
+			expect(function() { equal([
+				[
+					{
+						"message": {
+							"extends": false
+						}
+					},
+					{ "q": "cccc" }
+				]
+			]) }).toThrow();
+			expect(function() { equal([
+				[
+					{
+						"message": {
+							"messages": {
+								"aaaa": 765,
+								"bbbb": 346
+							}
+						}
+					},
+					{ "q": "cccc" }
+				]
+			]) }).toThrow();
+			expect(function() { equal([
+				[
+					{
+						"message": {
+							"extends": false,
+							"messages": 961
+						}
+					},
+					{ "q": "cccc" }
+				]
+			]) }).toThrow();
+		});
 	});
 
 	describe("continuation", function () {
@@ -528,6 +1011,14 @@ describe("Koume", function () {
 				],
 				["s", 765]
 			], 1111);
+		});
+		it("error", function () {
+			expect(function() { equal([
+				[
+					"callcc",
+					961
+				]
+			]) }).toThrow();
 		});
 	});
 

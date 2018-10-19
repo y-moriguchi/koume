@@ -389,6 +389,8 @@
 						throw new Error("instructions required");
 					} else if(!isArray(input.match.patterns[i].begin)) {
 						throw new Error("instructions must be an array");
+					} else if(input.match.patterns[i].begin.length === 0) {
+						throw new Error("instructions must not be empty");
 					}
 					if(i > 0) {
 						res.push("push");
@@ -446,6 +448,8 @@
 					throw new Error("patterns of macro required");
 				} else if(!isArray(input.defmacro.patterns)) {
 					throw new Error("patterns of macro must be an array");
+				} else if(input.defmacro.patterns.length === 0) {
+					throw new Error("patterns of macro must not be empty");
 				}
 				macroEnv.bindMacro(input.defmacro.name, input.defmacro.patterns);
 				return [];
@@ -1491,7 +1495,7 @@
 								{
 									"if": {
 										"cond": ["not", ["arrayp", "list"]],
-										"then": ["error", { "q": "arrayp required" }]
+										"then": ["error", { "q": "array required" }]
 									}
 								},
 								{
@@ -1524,7 +1528,7 @@
 								{
 									"if": {
 										"cond": ["not", ["arrayp", "list"]],
-										"then": ["error", { "q": "arrayp required" }]
+										"then": ["error", { "q": "array required" }]
 									}
 								},
 								{
@@ -1563,6 +1567,12 @@
 								"messages": "obj"
 							},
 							"begin": [
+								{
+									"if": {
+										"cond": ["not", ["objectp", "obj"]],
+										"then": ["error", { "q": "object required" }]
+									}
+								},
 								{
 									"qq": {
 										"function": {
