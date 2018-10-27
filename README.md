@@ -9,6 +9,17 @@ Koume has features as follows.
 
 ## How to use
 
+### node.js
+Install Koume:
+```
+npm install koume
+```
+
+Use module:
+```js
+var Koume = require('koume');
+```
+
 ### Browser
 ```html
 <script src="koume.js"></script>
@@ -199,3 +210,6 @@ Koume has features as follows.
   [["obj", { "q": "add" }], 346]
 ]
 ```
+
+## Document
+[A document of Koume is here (Japanese).](http://koume.morilib.net)
