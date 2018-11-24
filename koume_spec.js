@@ -965,6 +965,29 @@ describe("Koume", function () {
 				]
 			]) }).toThrow();
 		});
+		it("delay/force", function () {
+			equal([
+				{
+					"define": {
+						"x": 765,
+						"promise": {
+							"delay": "x"
+						}
+					}
+				},
+				{
+					"define": {
+						"y": ["force", "promise"]
+					}
+				},
+				{
+					"set": {
+						"x": 961
+					}
+				},
+				["force", "promise"]
+			], 765);
+		});
 	});
 
 	describe("continuation", function () {
@@ -1655,6 +1678,51 @@ describe("Koume", function () {
 			expect(function() { equal([["objectmap", { "q": "abcde" }, ["list", 4, 3, 2, 1]]]) }).toThrow();
 			expect(function() { equal([["objectmap", "sub", { "q": "abcde" }]]) }).toThrow();
 			expect(function() { equal([["objectmap", "add"]]) }).toThrow();
+		});
+		it("gensym", function () {
+			equal([
+				{
+					"defmacro": {
+						"name": "aaaa",
+						"patterns": [
+							{
+								"pattern": {
+									"bbbb": "a"
+								},
+								"begin": [
+									{
+										"let": {
+											"vars": {
+												"sym": ["gensym"]
+											},
+											"begin": [
+												{
+													"qq": [
+														{
+															"function": {
+																"args": [{ "uq": "sym" }],
+																"begin": [
+																	["+", { "uq": "sym" }, { "uq": "a" }]
+																]
+															}
+														},
+														346
+													]
+												}
+											]
+										}
+									}
+								]
+							}
+						]
+					}
+				},
+				{
+					"aaaa": {
+						"bbbb": 765
+					}
+				}
+			], 1111);
 		});
 	});
 });

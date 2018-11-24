@@ -8,7 +8,20 @@
  */
 (function(root) {
 	var undef = void 0,
-		nan = parseInt('Hello', 2);
+		nan = parseInt('Hello', 2),
+		gensymId = 1;
+	function gensym() {
+		return (function() {
+			var id = gensymId++;
+			return function(message) {
+				switch(message) {
+				case "type":  return "symbol";
+				case "id":    return id;
+				default:      return undef;
+				}
+			};
+		})();
+	}
 	function isArray(arg) {
 		return Object.prototype.toString.call(arg) === '[object Array]';
 	}
@@ -162,6 +175,8 @@
 				return res;
 			} else if(typeof input === "string") {
 				return ["var", input];
+			} else if(typeof input === "function" && input("type") === "symbol") {
+				return ["var", input];
 			} else if(input === null || input === true || input === false || typeof input === "number") {
 				return ["push", input];
 			} else if(input.hasOwnProperty("q")) {
@@ -211,7 +226,8 @@
 				} else if(!(function(args) {
 							var i;
 							for(i = 0; i < args.length; i++) {
-								if(typeof args[i] !== "string") {
+								if(!(typeof args[i] === "string" ||
+										(typeof args[i] === "function" && args[i]("type") === "symbol"))) {
 									return false;
 								}
 							}
@@ -441,6 +457,9 @@
 					res.push({ q: input.sq.substring(lIndex, input.sq.length) });
 				}
 				return walk(res);
+			} else if(input.hasOwnProperty("delay")) {
+				res = ["pushDelay", walk(input.delay)];
+				return res;
 			} else if(macroEnv !== null && input.hasOwnProperty("defmacro")) {
 				if(input.defmacro.name === undef) {
 					throw new Error("name of macro required");
@@ -504,8 +523,10 @@
 			vars = {};
 		me = {
 			find: function(name) {
-				if(vars.hasOwnProperty("@" + name)) {
+				if(typeof name === "string" && vars.hasOwnProperty("@" + name)) {
 					return vars["@" + name];
+				} else if(typeof name === "function" && name("type") === "symbol" && vars.hasOwnProperty("#" + name("id"))) {
+					return vars["#" + name("id")];
 				} else if(parentEnv) {
 					return parentEnv.find(name);
 				} else {
@@ -513,11 +534,19 @@
 				}
 			},
 			bind: function(name, val) {
-				vars["@" + name] = val;
+				if(typeof name === "string") {
+					vars["@" + name] = val;
+				} else if(typeof name === "function" && name("type") === "symbol") {
+					vars["#" + name("id")] = val;
+				} else {
+					throw new Error("internal error:" + name);
+				}
 			},
 			setVal: function(name, val) {
-				if(vars.hasOwnProperty("@" + name)) {
+				if(typeof name === "string" && vars.hasOwnProperty("@" + name)) {
 					vars["@" + name] = val;
+				} else if(typeof name === "function" && name("type") === "symbol" && vars.hasOwnProperty("#" + name("id"))) {
+					vars["#" + name("id")] = val;
 				} else if(parentEnv) {
 					return parentEnv.setVal(name, val);
 				} else {
@@ -794,6 +823,37 @@
 					});
 					pc++;
 					break;
+				case "pushDelay":
+					stack.push({
+						type: "delay",
+						code: code[pc + 1]
+					});
+					pc += 2;
+					break;
+				case "force":
+					popped = stack.pop();
+					if(popped.type !== "delay") {
+						throw new Error("promise required");
+					} else if(popped.memo === undef) {
+						stack.push({
+							type: "call",
+							pc: pc + 1,
+							env: env,
+							code: code,
+							memo: popped
+						});
+						pc = 0;
+						env = createEnv(env);
+						code = popped.code;
+					} else {
+						stack.push(popped.memo);
+						pc++;
+					}
+					break;
+				case "gensym":
+					stack.push({ type: "literal", val: gensym() });
+					pc++;
+					break;
 				case "match":
 					popped = stack.pop();
 					if(popped.type !== "literal") {
@@ -811,6 +871,9 @@
 				pc = stack[stack.length - 1].pc;
 				env = stack[stack.length - 1].env;
 				code = stack[stack.length - 1].code;
+				if(stack[stack.length - 1].memo !== undef) {
+					stack[stack.length - 1].memo.memo = popped;
+				}
 				stack.pop();
 				stack.push(popped);
 			} else {
@@ -1279,6 +1342,23 @@
 				"var",
 				"error",
 				"call"
+			]), genv)
+		});
+		genv.bind("force", {
+			type: "func",
+			val: (function() {
+				var sym = gensym();
+				return funcs.createInstance(funcs.putFunc([sym], null, [
+					"var",
+					sym,
+					"force"
+				]), genv)
+			})()
+		});
+		genv.bind("gensym", {
+			type: "func",
+			val: funcs.createInstance(funcs.putFunc([], null, [
+				"gensym"
 			]), genv)
 		});
 		execVM(traverse({
