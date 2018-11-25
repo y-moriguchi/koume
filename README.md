@@ -25,6 +25,11 @@ var Koume = require('koume');
 <script src="koume.js"></script>
 ```
 
+### Command Line
+```
+$ koume [-n] program.json
+```
+
 ## Examples
 
 ### Literals
