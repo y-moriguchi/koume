@@ -911,7 +911,7 @@
 			throw new Error("object required: " + x);
 		}
 	}
-	function createGlobalEnv(funcs) {
+	function createGlobalEnv(funcs, bindBuildinCallback) {
 		var genv = createEnv();
 		function bindBuiltin(name, func) {
 			var i;
@@ -1537,6 +1537,9 @@
 				]
 			}
 		}, funcs), genv, funcs);
+		if(bindBuildinCallback) {
+			bindBuildinCallback(bindBuildin);
+		}
 		return genv;
 	}
 	function resultToString(val) {
@@ -1553,12 +1556,12 @@
 			return "#<" + val.type + ">";
 		}
 	}
-	function evalLang(input) {
+	function evalLang(input, envs) {
 		var i,
 			res,
-			funcs = createFuncs(),
-			genv = createGlobalEnv(funcs),
-			macroEnv = createMacroEnv(funcs);
+			funcs = envs ? envs.funcs : createFuncs(),
+			genv = envs ? envs.genv : createGlobalEnv(funcs),
+			macroEnv = envs ? envs.macroEmv : createMacroEnv(funcs);
 		function execTop(input) {
 			var code;
 			code = traverse(input, funcs, macroEnv);
@@ -1701,18 +1704,46 @@
 				}
 			});
 		}
-		initMacro();
+		if(!envs) {
+			initMacro();
+		}
 		if(isArray(input)) {
 			for(i = 0; i < input.length; i++) {
 				res = execTop(input[i]);
 			}
-			return resultToString(res);
+			return {
+				result: resultToString(res),
+				envs: {
+					funcs: funcs,
+					genv: genv,
+					macroEnv: macroEnv
+				}
+			};
 		} else {
-			return resultToString(execTop(input));
+			return {
+				result: resultToString(execTop(input)),
+				envs: {
+					funcs: funcs,
+					genv: genv,
+					macroEnv: macroEnv
+				}
+			};
 		}
 	}
+	function evalOnce(input) {
+		return evalLang(input).result;
+	}
+	function createEvalEnv() {
+		var envs = null;
+		return function(input) {
+			var result = evalLang(input, envs);
+			envs = result.envs;
+			return result.result;
+		};
+	}
 	var LangModule = {
-		eval: evalLang
+		eval: evalOnce,
+		createEval: createEvalEnv
 	};
 	if(typeof module !== "undefined" && module.exports) {
 		module.exports = LangModule;
