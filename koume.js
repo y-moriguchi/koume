@@ -1262,7 +1262,7 @@
 		bindBuiltin("listToObject", function(aList) {
 			var result = {},
 				i;
-			for(i = 0; i < aList.length; i++) {
+			for(i = 0; i < aList.length; i += 2) {
 				result[aList[i]] = aList[i + 1];
 			}
 			return result;
