@@ -1259,6 +1259,14 @@
 			throw new Error(msg);
 		});
 		bindBuiltin("p", function(print) { console.log(print); return null; });
+		bindBuiltin("listToObject", function(aList) {
+			var result = {},
+				i;
+			for(i = 0; i < aList.length; i++) {
+				result[aList[i]] = aList[i + 1];
+			}
+			return result;
+		});
 		bindBuiltinValues("toString", function(x) {
 			return {
 				"type": "literal",
@@ -1556,12 +1564,12 @@
 			return "#<" + val.type + ">";
 		}
 	}
-	function evalLang(input, envs) {
+	function evalLang(input, envs, initBuiltin) {
 		var i,
 			res,
 			funcs = envs ? envs.funcs : createFuncs(),
-			genv = envs ? envs.genv : createGlobalEnv(funcs),
-			macroEnv = envs ? envs.macroEmv : createMacroEnv(funcs);
+			genv = envs ? envs.genv : createGlobalEnv(funcs, initBuiltin),
+			macroEnv = envs ? envs.macroEnv : createMacroEnv(funcs);
 		function execTop(input) {
 			var code;
 			code = traverse(input, funcs, macroEnv);
