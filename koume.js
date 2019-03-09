@@ -811,7 +811,8 @@
                         env = callee.env;
                     } else if(callee.type === "args" ||
                              callee.type === "tuple" ||
-                             (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null)) {
+                            (callee.type === "literal" && typeof callee.val === "object" && callee.val !== null) ||
+                            (callee.type === "literal" && typeof callee.val === "string")) {
                         callArgs(callee.type);
                         pc++;
                     } else {
@@ -1684,7 +1685,7 @@
         }, funcs), genv, funcs);
 
         if(bindBuildinCallback) {
-            bindBuildinCallback(bindBuildin);
+            bindBuildinCallback(bindBuiltin);
         }
         return genv;
     }
