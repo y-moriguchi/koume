@@ -1404,6 +1404,24 @@
             };
         });
 
+        bindBuiltinValues("arrayToValues", function(anArray) {
+            var i,
+                result = [];
+            if(typeof anArray !== "object" || anArray == null || anArray.type !== "literal" || !isArray(anArray.val)) {
+                throw new Error("array required");
+            }
+            for(i = 0; i < anArray.val.length; i++) {
+                result.push({
+                    "type": "literal",
+                    "val": anArray.val[i]
+                });
+            }
+            return {
+                "type": "args",
+                "val": result
+            };
+        });
+
         bindBuiltinValues("p", function(print) {
             console.log(resultToString(print));
             return {

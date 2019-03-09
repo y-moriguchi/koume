@@ -1811,8 +1811,19 @@ describe("Koume", function () {
             equal([[["values", 1, 2, 3], 1]], 2);
         });
 
+        it("concatValues", function () {
+            equal([[["concatValues", ["values", 1, 2, 3], ["values", 4, 5]], 3]], 4);
+        });
+
+        it("arrayToValues", function () {
+            equal([[["arrayToValues", { "q": [1, 2, 3] }], 1]], 2);
+            expect(function() { equal([["arrayToValues", { "q": "aaaa" }]]) }).toThrow();
+            expect(function() { equal([["arrayToValues", ["values", 1, 2]]]) }).toThrow();
+        });
+
         it("apply", function () {
             equal([["apply", "sub", ["list", 4, 3, 2, 1]]], -2);
+            equal([["apply", "sub", ["values", 4, 3, 2, 1]]], -2);
             expect(function() { equal([["apply", { "q": "abcde" }, ["list", 4, 3, 2, 1]]]) }).toThrow();
             expect(function() { equal([["apply", "sub", { "q": "abcde" }]]) }).toThrow();
         });
