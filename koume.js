@@ -10,6 +10,7 @@
     var undef = void 0,
         nan = parseInt('Hello', 2),
         gensymId = 1;
+
     function gensym() {
         return (function() {
             var id = gensymId++;
@@ -22,15 +23,19 @@
             };
         })();
     }
+
     function isArray(arg) {
         return Object.prototype.toString.call(arg) === '[object Array]';
     }
+
     function isInteger(x) {
         return typeof x === "number" && isFinite(x) && Math.floor(x) === x;
     }
+
     function tranc(x) {
         return x < 0 ? Math.ceil(x) : Math.floor(x);
     }
+
     function sign(x) {
         x = +x;
         if(x === 0 || isNaN(x)) {
@@ -38,6 +43,7 @@
         }
         return x > 0 ? 1 : -1;
     }
+
     function getOneAndOnlyField(obj) {
         var res = undef;
         for(i in obj) {
@@ -54,6 +60,7 @@
         }
         return res;
     }
+
     function getValueOfOneAndOnlyField(obj, field) {
         var res = undef;
         for(i in obj) {
@@ -67,6 +74,7 @@
         }
         return res === field ? obj[field] : undef;
     }
+
     function createMacroEnv(funcs) {
         var macroNames = [],
             env = createGlobalEnv(funcs),
@@ -107,6 +115,7 @@
         };
         return me;
     }
+
     function traverse(input, funcs, macroEnv) {
         function outputBegin(list, isTail) {
             var i,
@@ -119,6 +128,7 @@
             }
             return res;
         }
+
         function walkqqProto(input, list, cons) {
             var i,
                 res,
@@ -147,12 +157,15 @@
                 return { "q": input };
             }
         }
+
         function walkqq(input) {
             return walkqqProto(input, "list", "cons");
         }
+
         function walktq(input) {
             return walkqqProto(input, "values", "tuple");
         }
+
         function walk(input, isTail) {
             var i,
                 res,
@@ -166,6 +179,7 @@
                 resProp,
                 elseAddrs,
                 func;
+
             if(isArray(input)) {
                 res = ["stopArgs"];
                 for(i = input.length - 1; i >= 0; i--) {
@@ -484,6 +498,7 @@
         }
         return walk(input, false);
     }
+
     function createFuncs() {
         var me,
             funcs = {},
@@ -518,6 +533,7 @@
         };
         return me;
     }
+
     function createEnv(parentEnv) {
         var me,
             vars = {};
@@ -533,6 +549,7 @@
                     throw new Error("variable is not bound: " + name);
                 }
             },
+
             bind: function(name, val) {
                 if(typeof name === "string") {
                     vars["@" + name] = val;
@@ -542,6 +559,7 @@
                     throw new Error("internal error:" + name);
                 }
             },
+
             setVal: function(name, val) {
                 if(typeof name === "string" && vars.hasOwnProperty("@" + name)) {
                     vars["@" + name] = val;
@@ -556,6 +574,7 @@
         };
         return me;
     }
+
     function execVM(initCode, environment, funcs) {
         var i,
             pc = 0,
@@ -568,6 +587,7 @@
             args,
             callfunc,
             envnew;
+
         function callBuiltin(callee, args) {
             var i;
             for(i = 0; i < args.length; i++) {
@@ -578,9 +598,11 @@
             }
             stack.push({ type: "literal", val: callee.val.apply(null, args) });
         }
+
         function callBuiltinValues(callee, args) {
             stack.push(callee.val.apply(null, args));
         }
+
         function setUserFunc(callee, envnew, callfunc) {
             var i;
             for(i = 0; i < callfunc.args.length; i++) {
@@ -590,6 +612,7 @@
                 envnew.bind(callfunc.rest, { type: "args", val: args.slice(i) });
             }
         }
+
         function callFuncNew(callee) {
             var callfunc = funcs.getInstance(callee.val),
                 envnew = createEnv(callfunc.env);
@@ -602,6 +625,7 @@
             code = callfunc.code;
             env = envnew;
         }
+
         function callArgs(argsType) {
             if(args.length !== 1) {
                 throw new Error("length of argument calling rest parameter must be 1");
@@ -629,6 +653,7 @@
                 throw new Error("invalid message: " + args[0].val);
             }
         }
+        
         function matchPattern(ptn, target) {
             var i;
             if(typeof ptn === "string") {
@@ -647,6 +672,7 @@
                 return ptn === target;
             }
         }
+
         while(true) {
             while(pc < code.length) {
                 switch(code[pc]) {
@@ -654,6 +680,7 @@
                     stack.push({ type: "literal", val: code[pc + 1] });
                     pc += 2;
                     break;
+
                 case "pushFunc":
                     toPush = { type: "func", val: funcs.createInstance(code[pc + 1], env, code[pc + 3]) };
                     stack.push(toPush);
@@ -662,29 +689,40 @@
                     }
                     pc += 4;
                     break;
+
                 case "var":
                     stack.push(env.find(code[pc + 1]));
                     pc += 2;
                     break;
+
                 case "stopArgs":
                     stack.push({ type: "stopArgs" });
                     pc++;
                     break;
+
                 case "applyArgs":
                     popped = stack.pop();
-                    if(popped.type !== "literal" || !isArray(popped.val)) {
+                    if(popped.type === "literal" && isArray(popped.val)) {
+                        stack.push({ type: "stopArgs" });
+                        for(i = popped.val.length - 1; i >= 0; i--) {
+                            stack.push({ type: "literal", val: popped.val[i] });
+                        }
+                    } else if(popped.type === "args") {
+                        stack.push({ type: "stopArgs" });
+                        for(i = popped.val.length - 1; i >= 0; i--) {
+                            stack.push(popped.val[i]);
+                        }
+                    } else {
                         throw new Error("array required");
-                    }
-                    stack.push({ type: "stopArgs" });
-                    for(i = popped.val.length - 1; i >= 0; i--) {
-                        stack.push({ type: "literal", val: popped.val[i] });
                     }
                     pc++;
                     break;
+
                 case "createObj":
                     stack.push({ type: "literal", val: {} });
                     pc++;
                     break;
+
                 case "addObj":
                     popped = stack.pop();
                     if(stack[stack.length - 1].type !== "literal") {
@@ -695,15 +733,18 @@
                     stack[stack.length - 1].val[code[pc + 1]] = popped.val;
                     pc += 2;
                     break;
+
                 case "createTuple":
                     stack.push({ type: "tuple", val: {} });
                     pc++;
                     break;
+
                 case "addTuple":
                     popped = stack.pop();
                     stack[stack.length - 1].val[code[pc + 1]] = popped;
                     pc += 2;
                     break;
+
                 case "call":
                     callee = stack.pop();
                     for(args = []; (popped = stack.pop()).type !== "stopArgs";) {
@@ -732,6 +773,7 @@
                         throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
                     }
                     break;
+
                 case "callTail":
                     callee = stack.pop();
                     for(args = []; (popped = stack.pop()).type !== "stopArgs";) {
@@ -775,16 +817,20 @@
                         throw new Error("cannot be applied: type:" + callee.type + " val:" + callee.val);
                     }
                     break;
+
                 case "pop":
                     stack.pop();
                     pc++;
                     break;
+
                 case "goto":
                     pc += code[pc + 1] + 2;
                     break;
+
                 case "gotoAbs":
                     pc = code[pc + 1];
                     break;
+
                 case "gotoElse":
                     popped = stack.pop();
                     if(popped.type === "literal" && popped.val === false) {
@@ -792,19 +838,23 @@
                     }
                     pc += 2;
                     break;
+
                 case "bind":
                     env.bind(code[pc + 1], stack.pop());
                     pc += 2;
                     break;
+
                 case "set":
                     env.setVal(code[pc + 1], stack.pop());
                     pc += 2;
                     break;
+
                 case "saveEnv":
                     stack.push({ type: "saveEnv", env: env });
                     env = createEnv(env);
                     pc++;
                     break;
+
                 case "restoreEnv":
                     popped = stack.pop();
                     if(stack[stack.length - 1].type !== "saveEnv") {
@@ -814,6 +864,7 @@
                     stack[stack.length - 1] = popped;
                     pc++;
                     break;
+
                 case "pushCc":
                     stack.push({
                         type: "cont",
@@ -823,6 +874,7 @@
                     });
                     pc++;
                     break;
+
                 case "pushDelay":
                     stack.push({
                         type: "delay",
@@ -830,6 +882,7 @@
                     });
                     pc += 2;
                     break;
+
                 case "force":
                     popped = stack.pop();
                     if(popped.type !== "delay") {
@@ -850,10 +903,12 @@
                         pc++;
                     }
                     break;
+
                 case "gensym":
                     stack.push({ type: "literal", val: gensym() });
                     pc++;
                     break;
+
                 case "match":
                     popped = stack.pop();
                     if(popped.type !== "literal") {
@@ -862,10 +917,12 @@
                     stack.push({ type: "literal", val: matchPattern(code[pc + 1], popped.val) });
                     pc += 2;
                     break;
+
                 default:
                     throw new Error("internal error:" + code[pc]);
                 }
             }
+
             popped = stack.pop();
             if(stack[stack.length - 1] && stack[stack.length - 1].type === "call") {
                 pc = stack[stack.length - 1].pc;
@@ -881,36 +938,43 @@
             }
         }
     }
+
     function checkNumber(x) {
         if(typeof x !== "number") {
             throw new Error("number required: " + x);
         }
     }
+
     function checkInteger(x) {
         if(!isInteger(x)) {
             throw new Error("integer required: " + x);
         }
     }
+
     function checkNonnegativeInteger(x) {
         if(!isInteger(x) || x < 0) {
             throw new Error("nonnegative integer required: " + x);
         }
     }
+
     function checkString(x) {
         if(typeof x !== "string") {
             throw new Error("string required: " + x);
         }
     }
+
     function checkArray(x) {
         if(!isArray(x)) {
             throw new Error("array required: " + x);
         }
     }
+
     function checkObject(x) {
         if(typeof x !== "object" || x === null) {
             throw new Error("object required: " + x);
         }
     }
+
     function createGlobalEnv(funcs, bindBuildinCallback) {
         var genv = createEnv();
         function bindBuiltin(name, func) {
@@ -923,6 +987,7 @@
                 genv.bind(name, { type: "builtin", val: func });
             }
         }
+
         function bindBuiltinValues(name, func) {
             var i;
             if(isArray(name)) {
@@ -933,6 +998,7 @@
                 genv.bind(name, { type: "builtinvalues", val: func });
             }
         }
+
         bindBuiltin(["add", "+"], function() {
             var i,
                 res = 0;
@@ -942,6 +1008,7 @@
             }
             return res;
         });
+
         bindBuiltin(["sub", "-"], function() {
             var i,
                 res;
@@ -960,6 +1027,7 @@
                 return res;
             }
         });
+
         bindBuiltin(["mul", "*"], function() {
             var i,
                 res = 1;
@@ -969,6 +1037,7 @@
             }
             return res;
         });
+
         bindBuiltin(["div", "/"], function() {
             var i,
                 res;
@@ -987,23 +1056,28 @@
                 return res;
             }
         });
+
         bindBuiltin("quotient", function(a, b) {
             checkInteger(a);
             checkInteger(b);
             return tranc(a / b);
         });
+
         bindBuiltin("remainder", function(a, b) {
             checkInteger(a);
             checkInteger(b);
             return a % b;
         });
+
         bindBuiltin("modulo", function(a, b) {
             var sgn = sign(a) * sign(b);
             checkInteger(a);
             checkInteger(b);
             return sgn < 0 ? b + a % b : a % b;
         });
+
         bindBuiltin("eqv", function(a, b) { return a === b; });
+
         function compareFunc(f, checkf) {
             return function() {
                 var i,
@@ -1018,6 +1092,7 @@
                 return true;
             };
         }
+
         function checkAndExecute(arity, execf, checkf) {
             return function(x) {
                 var i,
@@ -1031,6 +1106,7 @@
                 return execf.apply(null, args);
             };
         }
+
         bindBuiltin("=", compareFunc(function(a, b) { return a === b; }, checkNumber));
         bindBuiltin("!=", compareFunc(function(a, b) { return a !== b; }, checkNumber));
         bindBuiltin("<", compareFunc(function(a, b) { return a < b; }, checkNumber));
@@ -1048,6 +1124,7 @@
         bindBuiltin("expt", checkAndExecute(2, Math.pow, checkNumber));
         bindBuiltin("log", checkAndExecute(1, Math.log, checkNumber));
         bindBuiltin("list", function() { return Array.prototype.slice.call(arguments); });
+
         bindBuiltin("first", function(list) {
             checkArray(list);
             if(list.length > 0) {
@@ -1056,6 +1133,7 @@
                 throw new Error("empty array");
             }
         });
+
         bindBuiltin("rest", function(list) {
             checkArray(list);
             if(list.length > 0) {
@@ -1064,29 +1142,35 @@
                 throw new Error("empty array");
             }
         });
+
         bindBuiltin("setprop", function(name, obj, val) {
             checkString(name);
             checkObject(obj);
             return obj[name] = val;
         });
+
         bindBuiltin("numberp", function(x) { return typeof x === "number"; });
+
         bindBuiltinValues("numberp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "literal" && typeof obj.val === "number"
             };
         });
+
         bindBuiltinValues("integerp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "literal" && isInteger(obj.val)
             };
         });
+
         bindBuiltin("floor", checkAndExecute(1, Math.floor, checkNumber));
         bindBuiltin("ceiling", checkAndExecute(1, Math.ceil, checkNumber));
         bindBuiltin("trancate", checkAndExecute(1, tranc, checkNumber));
         bindBuiltin("round", checkAndExecute(1, Math.round, checkNumber));
         bindBuiltin("sqrt", checkAndExecute(1, Math.sqrt, checkNumber));
+
         bindBuiltin("numberToString", function(x, radix) {
             checkNumber(x);
             if(radix === undef) {
@@ -1099,10 +1183,12 @@
                 return x.toString(radix);
             }
         });
+
         bindBuiltin("stringToNumber", function(x) {
             checkString(x);
             return parseFloat(x);
         });
+
         bindBuiltin("stringToInteger", function(x, radix) {
             function makeRadix(radix) {
                 if(radix === undef) {
@@ -1126,30 +1212,35 @@
                 return nan;
             }
         });
+
         bindBuiltinValues("booleanp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "literal" && typeof obj.val === "boolean"
             };
         });
+
         bindBuiltinValues("nullp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "literal" && obj.val === null
             };
         });
+
         bindBuiltinValues("arrayp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "literal" && isArray(obj.val)
             };
         });
+
         bindBuiltinValues("objectp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "literal" && obj.val !== null && typeof obj.val === "object"
             };
         });
+
         bindBuiltin("keys", function(obj) {
             var res = [];
             checkObject(obj);
@@ -1160,6 +1251,7 @@
             }
             return res;
         });
+
         bindBuiltin("equal", function(obj1, obj2) {
             function isEqual(obj1, obj2) {
                 var i;
@@ -1195,14 +1287,17 @@
             }
             return isEqual(obj1, obj2);
         });
+
         bindBuiltin("length", function(obj) {
             if(typeof obj !== "string" && !isArray(obj)) {
                 throw new Error("object must have length");
             }
             return obj.length;
         });
+
         bindBuiltin("max", checkAndExecute(-1, Math.max, checkNumber));
         bindBuiltin("min", checkAndExecute(-1, Math.min, checkNumber));
+
         bindBuiltin("stringAppend", function() {
             var i,
                 res = "";
@@ -1212,6 +1307,7 @@
             }
             return res;
         });
+
         bindBuiltin("string=", compareFunc(function(a, b) { return a === b; }, checkString));
         bindBuiltin("stringci=", compareFunc(function(a, b) {
             return a.toUpperCase() === b.toUpperCase();
@@ -1224,6 +1320,7 @@
         bindBuiltin("string<=", compareFunc(function(a, b) { return a <= b; }, checkString));
         bindBuiltin("string>", compareFunc(function(a, b) { return a > b; }, checkString));
         bindBuiltin("string>=", compareFunc(function(a, b) { return a >= b; }, checkString));
+
         bindBuiltin("stringci<", compareFunc(function(a, b) {
             return a.toUpperCase() < b.toUpperCase();
         }, checkString));
@@ -1236,6 +1333,7 @@
         bindBuiltin("stringci>=", compareFunc(function(a, b) {
             return a.toUpperCase() >= b.toUpperCase();
         }, checkString));
+
         bindBuiltin("substring", function(str, start, end) {
             checkString(str);
             checkNonnegativeInteger(start);
@@ -1245,6 +1343,7 @@
             }
             return str.substring(start, end);
         });
+
         bindBuiltin("concat", function() {
             var i = 0,
                 res = [];
@@ -1254,11 +1353,12 @@
             }
             return res;
         });
+
         bindBuiltin("error", function(msg) {
             checkString(msg);
             throw new Error(msg);
         });
-        bindBuiltin("p", function(print) { console.log(print); return null; });
+
         bindBuiltin("listToObject", function(aList) {
             var result = {},
                 i;
@@ -1267,22 +1367,48 @@
             }
             return result;
         });
+
         bindBuiltinValues("toString", function(x) {
             return {
                 "type": "literal",
                 "val": valueToString(x)
             };
         });
+
         bindBuiltinValues("functionp", function(obj) {
             return {
                 "type": "literal",
                 "val": obj.type === "func" || obj.type === "builtin" || obj.type === "builtinvalues" || obj.type === "cont"
             };
         });
+
         bindBuiltinValues("values", function() {
             return {
                 "type": "args",
                 "val": Array.prototype.slice.call(arguments)
+            };
+        });
+
+        bindBuiltinValues("concatValues", function() {
+            var i,
+                result = [];
+            for(i = 0; i < arguments.length; i++) {
+                if(typeof arguments[i] !== "object" || arguments[i] === null || arguments[i].type !== "args") {
+                    throw new Error("values required");
+                }
+                result = result.concat(arguments[i].val);
+            }
+            return {
+                "type": "args",
+                "val": result
+            };
+        });
+
+        bindBuiltinValues("p", function(print) {
+            console.log(resultToString(print));
+            return {
+                "type": "literal",
+                "val": null
             };
         });
 
@@ -1312,6 +1438,7 @@
                 "call"
             ]), genv)
         });
+
         genv.bind("apply", {
             type: "func",
             val: funcs.createInstance(funcs.putFunc(["f", "args"], null, [
@@ -1322,15 +1449,7 @@
                 "functionp",
                 "call",
                 "gotoElse",
-                16,
-                "stopArgs",
-                "var",
-                "args",
-                "var",
-                "arrayp",
-                "call",
-                "gotoElse",
-                14,
+                8,
                 "var",
                 "args",
                 "applyArgs",
@@ -1338,21 +1457,16 @@
                 "f",
                 "callTail",
                 "goto",
-                12,
+                6,
                 "stopArgs",
                 "push",
                 "function required",
                 "var",
                 "error",
                 "call",
-                "stopArgs",
-                "push",
-                "array required",
-                "var",
-                "error",
-                "call"
             ]), genv)
         });
+
         genv.bind("force", {
             type: "func",
             val: (function() {
@@ -1364,12 +1478,14 @@
                 ]), genv)
             })()
         });
+
         genv.bind("gensym", {
             type: "func",
             val: funcs.createInstance(funcs.putFunc([], null, [
                 "gensym"
             ]), genv)
         });
+
         execVM(traverse({
             "function": {
                 "name": "arraymap",
@@ -1492,6 +1608,7 @@
                 ]
             }
         }, funcs), genv, funcs);
+
         execVM(traverse({
             "function": {
                 "name": "objectmap",
@@ -1546,11 +1663,13 @@
                 ]
             }
         }, funcs), genv, funcs);
+
         if(bindBuildinCallback) {
             bindBuildinCallback(bindBuildin);
         }
         return genv;
     }
+
     function resultToString(val) {
         if(val.type === "literal") {
             return val.val;
@@ -1558,6 +1677,7 @@
             return "#<" + val.type + ">";
         }
     }
+
     function valueToString(val) {
         if(val.type === "literal") {
             return JSON.stringify(val.val);
@@ -1565,6 +1685,7 @@
             return "#<" + val.type + ">";
         }
     }
+
     function evalLang(input, envs, initBuiltin) {
         var i,
             res,
@@ -1739,9 +1860,11 @@
             };
         }
     }
+
     function evalOnce(input) {
         return evalLang(input).result;
     }
+
     function createEvalEnv(builtIn) {
         var envs = null;
         return function(input) {
@@ -1750,10 +1873,12 @@
             return result.result;
         };
     }
+
     var LangModule = {
         eval: evalOnce,
         createEval: createEvalEnv
     };
+
     if(typeof module !== "undefined" && module.exports) {
         module.exports = LangModule;
     } else {
