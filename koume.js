@@ -1215,6 +1215,13 @@
             }
         });
 
+        bindBuiltinValues("stringp", function(obj) {
+            return {
+                "type": "literal",
+                "val": obj.type === "literal" && typeof obj.val === "string"
+            };
+        });
+
         bindBuiltinValues("booleanp", function(obj) {
             return {
                 "type": "literal",
@@ -1290,13 +1297,6 @@
             return isEqual(obj1, obj2);
         });
 
-        bindBuiltin("length", function(obj) {
-            if(typeof obj !== "string" && !isArray(obj)) {
-                throw new Error("object must have length");
-            }
-            return obj.length;
-        });
-
         bindBuiltin("max", checkAndExecute(-1, Math.max, checkNumber));
         bindBuiltin("min", checkAndExecute(-1, Math.min, checkNumber));
 
@@ -1368,6 +1368,18 @@
                 result[aList[i]] = aList[i + 1];
             }
             return result;
+        });
+
+        bindBuiltinValues("length", function(obj) {
+            if(obj.type !== "literal" && obj.type !== "args") {
+                throw new Error("object must have length")
+            } else if(typeof obj.val !== "string" && !isArray(obj.val)) {
+                throw new Error("object must have length");
+            }
+            return {
+                "type": "literal",
+                "val": obj.val.length
+            };
         });
 
         bindBuiltinValues("toString", function(x) {

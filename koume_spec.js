@@ -1525,6 +1525,18 @@ describe("Koume", function () {
             expect(function() { equal([["stringToInteger", { "q": "765" }, 37]]) }).toThrow();
         });
 
+        it("stringp", function () {
+            equal([["stringp", 1]], false);
+            equal([["stringp", 1.2]], false);
+            equal([["stringp", { "q": "2" }]], true);
+            equal([["stringp", { "q": [1] }]], false);
+            equal([["stringp", { "q": { "aaaa": 1 } }]], false);
+            equal([["stringp", null]], false);
+            equal([["stringp", true]], false);
+            equal([["stringp", false]], false);
+            equal([["stringp", "add"]], false);
+        });
+
         it("booleanp", function () {
             equal([["booleanp", 1]], false);
             equal([["booleanp", 1.2]], false);
@@ -1600,6 +1612,7 @@ describe("Koume", function () {
         it("length", function () {
             equal([["length", { "q": [765, 346] }]], 2);
             equal([["length", { "q": "aaaa" }]], 4);
+            equal([["length", ["values", 765, 345]]], 2);
             expect(function() { equal([["length", { "0": 1, "1": 2 }]]) }).toThrow();
             expect(function() { equal([["length", 1]]) }).toThrow();
         });
